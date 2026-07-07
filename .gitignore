@@ -21,3 +21,5 @@ application-local.yml
 *.pdf
 *.doc
 *.docx
+
+.worktrees/
