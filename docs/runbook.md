@@ -41,6 +41,19 @@ mvn spring-boot:run
 
 默认地址：`http://localhost:8080`
 
+如果本机 MySQL 密码不是 `root`，启动前设置环境变量：
+
+```powershell
+$env:DB_USERNAME="root"
+$env:DB_PASSWORD="你的 MySQL 密码"
+```
+
+在 IDEA 中可以进入 Run Configuration，在 Environment variables 中添加：
+
+```text
+DB_USERNAME=root;DB_PASSWORD=你的 MySQL 密码
+```
+
 ## 3. 前端
 
 安装依赖并启动：
