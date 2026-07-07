@@ -97,7 +97,7 @@ function fillDemo(username: string) {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 28px;
+  padding: 32px;
 }
 
 .login-shell {
@@ -105,24 +105,40 @@ function fillDemo(username: string) {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
   gap: 18px;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--sz-line);
-  border-radius: 30px;
-  background: rgba(255, 253, 247, 0.86);
+  border-radius: 28px;
+  background: rgba(255, 250, 241, 0.9);
   box-shadow: var(--sz-shadow);
 }
 
 .brand-panel {
+  position: relative;
+  overflow: hidden;
   min-height: 560px;
   display: flex;
   flex-direction: column;
   padding: 34px;
   border-radius: 24px;
   color: #ffffff;
-  background:
-    linear-gradient(180deg, rgba(31, 77, 58, 0.18), rgba(7, 37, 27, 0.86)),
-    url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80')
-      center / cover;
+  background-color: var(--sz-evergreen);
+  background-image: url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80');
+  background-position: center;
+  background-size: cover;
+  background-blend-mode: multiply;
+}
+
+.brand-panel::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: rgba(18, 61, 45, 0.36);
+  pointer-events: none;
+}
+
+.brand-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .logo-row {
@@ -173,7 +189,8 @@ li {
   gap: 10px;
   min-height: 44px;
   padding: 0 14px;
-  border-radius: 14px;
+  border: 1px solid rgba(255, 250, 241, 0.14);
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
   font-weight: 800;
 }
@@ -235,8 +252,8 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 34px;
+  padding: 0 13px;
   border-radius: var(--sz-radius-pill);
   font-size: 13px;
 }
@@ -257,6 +274,14 @@ h2 {
   color: var(--sz-text);
   background: var(--sz-surface);
   cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.demo-box button:hover {
+  border-color: var(--sz-green);
+  color: var(--sz-deep-green);
 }
 
 @media (max-width: 820px) {

@@ -48,29 +48,33 @@ function logout() {
     <main class="sz-page page-content">
       <router-view />
     </main>
+    <button class="floating-recommend" type="button" aria-label="快速生成推荐" @click="router.push('/user/recommend')">
+      <Sparkles />
+    </button>
   </div>
 </template>
 
 <style scoped>
 .user-shell {
   min-height: 100vh;
-  padding: 18px 0 42px;
+  padding: 22px 0 52px;
 }
 
 .topbar {
   position: sticky;
-  top: 12px;
+  top: 14px;
   z-index: 20;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 24px;
+  gap: 28px;
   align-items: center;
-  min-height: 72px;
-  padding: 12px 18px;
-  border: 1px solid rgba(227, 218, 203, 0.92);
-  border-radius: var(--sz-radius-panel);
-  background: rgba(255, 253, 247, 0.88);
-  backdrop-filter: blur(18px);
+  min-height: 78px;
+  padding: 12px 18px 12px 22px;
+  border: 1px solid rgba(223, 210, 191, 0.96);
+  border-radius: 26px;
+  background: rgba(255, 250, 241, 0.9);
+  box-shadow: 0 9px 24px rgba(23, 37, 31, 0.07);
+  backdrop-filter: blur(20px);
 }
 
 .brand {
@@ -80,7 +84,7 @@ function logout() {
 
 .brand strong {
   color: var(--sz-deep-green);
-  font-size: 28px;
+  font-size: 30px;
   line-height: 1;
 }
 
@@ -92,15 +96,15 @@ function logout() {
 nav {
   display: flex;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 nav a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 38px;
-  padding: 0 13px;
+  min-height: 42px;
+  padding: 0 14px;
   border-radius: var(--sz-radius-pill);
   color: var(--sz-muted);
   font-weight: 700;
@@ -116,7 +120,7 @@ nav svg {
 
 nav a.router-link-active {
   color: var(--sz-deep-green);
-  background: var(--sz-mint);
+  background: #d8eadf;
 }
 
 .user-menu {
@@ -128,7 +132,41 @@ nav a.router-link-active {
 }
 
 .page-content {
-  padding-top: 22px;
+  padding-top: 24px;
+}
+
+.floating-recommend {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--sz-evergreen);
+  box-shadow: 0 14px 28px rgba(18, 61, 45, 0.22);
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.floating-recommend:hover {
+  background: var(--sz-green-dark);
+  transform: translateY(-2px);
+}
+
+.floating-recommend:active {
+  transform: scale(0.96);
+}
+
+.floating-recommend svg {
+  width: 22px;
+  height: 22px;
 }
 
 @media (max-width: 920px) {
@@ -149,6 +187,11 @@ nav a.router-link-active {
   .brand span,
   nav a span {
     display: none;
+  }
+
+  .floating-recommend {
+    right: 18px;
+    bottom: 18px;
   }
 }
 </style>

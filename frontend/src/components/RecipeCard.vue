@@ -42,8 +42,19 @@ defineProps<{
 .recipe-card {
   overflow: hidden;
   border: 1px solid rgba(227, 218, 203, 0.9);
-  border-radius: 18px;
+  border-radius: var(--sz-radius-card);
   background: var(--sz-surface);
+  box-shadow: var(--sz-shadow-soft);
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.recipe-card:hover {
+  border-color: var(--sz-line-strong);
+  box-shadow: var(--sz-shadow);
+  transform: translateY(-2px);
 }
 
 .image-wrap {
@@ -65,8 +76,8 @@ img {
   bottom: 10px;
   padding: 4px 10px;
   border-radius: var(--sz-radius-pill);
-  color: var(--sz-deep-green);
-  background: rgba(223, 241, 230, 0.94);
+  color: #ffffff;
+  background: var(--sz-green-dark);
   font-size: 12px;
   font-weight: 800;
 }
