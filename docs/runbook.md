@@ -15,6 +15,15 @@ mysql -u root -p shanzai_recipe < backend/src/main/resources/db/schema.sql
 mysql -u root -p shanzai_recipe < backend/src/main/resources/db/data.sql
 ```
 
+如果 MySQL 命令行因为项目路径包含中文而无法 `SOURCE` SQL 文件，可以使用 IDEA 的 Database 面板连接 `shanzai_recipe` 后，分别右键运行：
+
+```text
+backend/src/main/resources/db/schema.sql
+backend/src/main/resources/db/data.sql
+```
+
+也可以先把两个 SQL 文件复制到纯英文路径后再执行 `SOURCE`。
+
 ## 2. 后端
 
 设置环境变量：
