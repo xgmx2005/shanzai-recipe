@@ -3,18 +3,18 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#2F9E63',
-    primaryColorHover: '#248955',
-    primaryColorPressed: '#1F4D3A',
-    borderRadius: '16px',
+    primaryColor: '#236B4B',
+    primaryColorHover: '#2C8B57',
+    primaryColorPressed: '#123D2D',
+    borderRadius: '14px',
     fontFamily:
       'Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif',
   },
   Button: {
     borderRadiusMedium: '999px',
     borderRadiusLarge: '999px',
-    heightMedium: '40px',
-    heightLarge: '46px',
+    heightMedium: '42px',
+    heightLarge: '50px',
   },
   Card: {
     borderRadius: '16px',

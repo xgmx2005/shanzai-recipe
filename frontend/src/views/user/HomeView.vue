@@ -36,7 +36,7 @@ const goalLabel = computed(() => {
               <n-icon><ArrowRight /></n-icon>
             </template>
           </n-button>
-          <n-button size="large" secondary type="primary" @click="router.push('/user/profile')">
+          <n-button class="hero-secondary" size="large" secondary type="primary" @click="router.push('/user/profile')">
             完善档案
           </n-button>
         </div>
@@ -111,6 +111,9 @@ const goalLabel = computed(() => {
   gap: 28px;
   align-items: center;
   padding: 30px;
+  border-color: rgba(18, 61, 45, 0.12);
+  background: var(--sz-evergreen);
+  box-shadow: 0 18px 34px rgba(18, 61, 45, 0.16);
 }
 
 .hero-copy {
@@ -122,7 +125,7 @@ const goalLabel = computed(() => {
 h1 {
   margin: 0;
   max-width: 620px;
-  color: var(--sz-ink);
+  color: #ffffff;
   font-size: 38px;
   line-height: 1.18;
   letter-spacing: 0;
@@ -131,7 +134,7 @@ h1 {
 .hero-copy > p:not(.sz-chip) {
   max-width: 620px;
   margin: 0;
-  color: var(--sz-text);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 16px;
   line-height: 1.8;
 }
@@ -141,6 +144,18 @@ h1 {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 6px;
+}
+
+.hero-secondary {
+  --n-color: rgba(255, 255, 255, 0.08) !important;
+  --n-color-hover: rgba(255, 255, 255, 0.14) !important;
+  --n-color-pressed: rgba(255, 255, 255, 0.18) !important;
+  --n-border: 1px solid rgba(255, 255, 255, 0.36) !important;
+  --n-border-hover: 1px solid rgba(255, 255, 255, 0.72) !important;
+  --n-border-pressed: 1px solid rgba(255, 255, 255, 0.72) !important;
+  --n-text-color: #ffffff !important;
+  --n-text-color-hover: #ffffff !important;
+  --n-text-color-pressed: #ffffff !important;
 }
 
 .hero-plate {
@@ -153,7 +168,8 @@ h1 {
   height: 250px;
   display: block;
   object-fit: cover;
-  border-radius: 22px;
+  border: 6px solid rgba(255, 250, 241, 0.18);
+  border-radius: 24px;
 }
 
 .hero-plate div {
@@ -162,8 +178,8 @@ h1 {
   bottom: 16px;
   min-width: 136px;
   padding: 14px;
-  border-radius: 18px;
-  background: rgba(255, 253, 247, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 250, 241, 0.94);
   box-shadow: 0 12px 24px rgba(31, 42, 36, 0.16);
 }
 
@@ -193,8 +209,9 @@ h1 {
   gap: 8px;
   padding: 18px;
   border: 1px solid rgba(227, 218, 203, 0.88);
-  border-radius: 18px;
+  border-radius: var(--sz-radius-card);
   background: var(--sz-surface);
+  box-shadow: var(--sz-shadow-soft);
 }
 
 .metric-card span {
@@ -246,7 +263,7 @@ h1 {
 }
 
 .quick-actions button {
-  min-height: 46px;
+  min-height: 50px;
   border: 1px solid var(--sz-line);
   border-radius: var(--sz-radius-pill);
   color: var(--sz-deep-green);
@@ -258,7 +275,7 @@ h1 {
 .quick-actions button:first-child {
   border-color: transparent;
   color: #ffffff;
-  background: linear-gradient(135deg, var(--sz-green), var(--sz-deep-green));
+  background: var(--sz-green-dark);
 }
 
 .recipes-panel {

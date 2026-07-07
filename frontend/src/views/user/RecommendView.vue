@@ -192,6 +192,14 @@ h1 {
   color: var(--sz-deep-green);
   background: var(--sz-surface);
   cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.quick-wrap button:hover {
+  border-color: var(--sz-green);
+  background: var(--sz-mint);
 }
 
 .form-section {
@@ -218,12 +226,19 @@ h2 {
   display: grid;
   gap: 18px;
   padding: 22px;
+  border-color: rgba(18, 61, 45, 0.18);
+  color: #ffffff;
+  background: var(--sz-evergreen);
 }
 
 .preview-panel > div:first-child {
   display: grid;
   justify-items: start;
   gap: 10px;
+}
+
+.preview-panel h2 {
+  color: #ffffff;
 }
 
 .preview-list {
@@ -237,9 +252,9 @@ h2 {
   gap: 12px;
   align-items: center;
   padding: 10px;
-  border: 1px solid var(--sz-line);
+  border: 1px solid rgba(255, 250, 241, 0.16);
   border-radius: 16px;
-  background: var(--sz-surface-soft);
+  background: rgba(255, 250, 241, 0.12);
 }
 
 .preview-list img {
@@ -262,7 +277,7 @@ h2 {
 }
 
 .preview-list span {
-  color: var(--sz-muted);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
 }
 

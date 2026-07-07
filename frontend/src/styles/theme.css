@@ -1,25 +1,32 @@
 :root {
-  --sz-bg: #f7f3ea;
-  --sz-surface: #fffdf7;
-  --sz-surface-soft: #faf7ef;
-  --sz-line: #e3dacb;
-  --sz-ink: #1f2a24;
-  --sz-text: #465149;
-  --sz-muted: #69766d;
+  --sz-bg: #f6f1e7;
+  --sz-bg-soft: #fbf7ef;
+  --sz-surface: #fffaf1;
+  --sz-surface-soft: #f3ebdc;
+  --sz-line: #dfd2bf;
+  --sz-line-strong: #cdbda6;
+  --sz-ink: #17251f;
+  --sz-text: #3f4b44;
+  --sz-muted: #69746d;
+  --sz-evergreen: #123d2d;
   --sz-deep-green: #1f4d3a;
-  --sz-green: #2f9e63;
-  --sz-green-dark: #197244;
-  --sz-mint: #dff1e6;
-  --sz-mint-strong: #bde5cc;
+  --sz-green-dark: #236b4b;
+  --sz-green: #2c8b57;
+  --sz-green-fresh: #48a86a;
+  --sz-mint: #dcefe4;
+  --sz-mint-strong: #b8dcc7;
   --sz-tomato: #e65b3e;
   --sz-tomato-soft: #f8ded5;
   --sz-grain: #e6b85c;
   --sz-grain-soft: #f4e7c8;
   --sz-blue-soft: #dcecf1;
-  --sz-radius-card: 16px;
-  --sz-radius-panel: 24px;
+  --sz-radius-card: 14px;
+  --sz-radius-panel: 22px;
   --sz-radius-pill: 999px;
   --sz-shadow:
-    0 18px 34px rgba(31, 42, 36, 0.1),
-    0 1px 2px rgba(31, 42, 36, 0.08);
+    0 18px 34px rgba(23, 37, 31, 0.08),
+    0 1px 2px rgba(23, 37, 31, 0.07);
+  --sz-shadow-soft:
+    0 8px 22px rgba(23, 37, 31, 0.06),
+    0 1px 1px rgba(23, 37, 31, 0.05);
 }
