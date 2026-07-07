@@ -48,7 +48,7 @@ class RecommendationServiceTest {
             historyMapper,
             logMapper,
             new RecommendationScoringService(),
-            new AiRecommendationService()
+            new AiRecommendationService(new DisabledDeepSeekClient())
         );
     }
 
