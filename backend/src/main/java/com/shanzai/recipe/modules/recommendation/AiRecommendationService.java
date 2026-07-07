@@ -6,6 +6,12 @@ import java.util.List;
 
 @Service
 public class AiRecommendationService {
+    private final DeepSeekClient deepSeekClient;
+
+    public AiRecommendationService(DeepSeekClient deepSeekClient) {
+        this.deepSeekClient = deepSeekClient;
+    }
+
     public String generateSummary(String dietGoal, List<RecommendedRecipeResponse> recipes) {
         if (recipes == null || recipes.isEmpty()) {
             return "暂未找到完全匹配的菜谱，建议放宽食材或时间条件后重新推荐。";
@@ -18,6 +24,13 @@ public class AiRecommendationService {
     }
 
     public String generateReason(String recipeName, String dietGoal, List<String> matchedIngredients) {
+        return deepSeekClient.generateRecommendationText(recipeName, dietGoal, matchedIngredients)
+            .map(AiRecommendationText::reason)
+            .filter(reason -> !reason.isBlank())
+            .orElseGet(() -> fallbackReason(recipeName, dietGoal, matchedIngredients));
+    }
+
+    private String fallbackReason(String recipeName, String dietGoal, List<String> matchedIngredients) {
         String ingredients = matchedIngredients == null || matchedIngredients.isEmpty()
             ? "现有食材"
             : String.join("、", matchedIngredients);
