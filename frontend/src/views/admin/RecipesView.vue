@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { BookOpen, Pencil, Plus, Search, Trash2 } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import {
@@ -7,9 +7,10 @@ import {
   deleteAdminRecipe,
   getAdminRecipe,
   listAdminRecipes,
+  listIngredients,
   updateAdminRecipe,
 } from '@/api/admin'
-import type { DietGoal, Difficulty, RecipeSaveRequest, RecipeSummary } from '@/types'
+import type { DietGoal, Difficulty, Ingredient, RecipeSaveRequest, RecipeSummary } from '@/types'
 
 const message = useMessage()
 const loading = ref(true)
@@ -18,6 +19,15 @@ const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
 const error = ref('')
 const recipes = ref<RecipeSummary[]>([])
+const ingredients = ref<Ingredient[]>([])
+const ingredientLoading = ref(false)
+
+type RecipeIngredientInput = {
+  ingredientId: number | null
+  quantity: number | null
+  unit: string
+  core: boolean
+}
 
 const filters = reactive({
   keyword: '',
@@ -40,7 +50,7 @@ const form = reactive({
   healthTags: [] as string[],
   targetGoals: ['BALANCED'] as DietGoal[],
   steps: [] as string[],
-  ingredientsJson: '[{"ingredientId":1,"quantity":100,"unit":"g","core":true}]',
+  ingredients: [{ ingredientId: null, quantity: 100, unit: 'g', core: true }] as RecipeIngredientInput[],
 })
 
 const goalOptions = [
@@ -54,6 +64,13 @@ const difficultyOptions = [
   { label: '中等', value: 'MEDIUM' },
   { label: '困难', value: 'HARD' },
 ]
+
+const ingredientOptions = computed(() =>
+  ingredients.value.map((ingredient) => ({
+    label: `${ingredient.name} / ${ingredient.category}`,
+    value: ingredient.id,
+  })),
+)
 
 function resetForm() {
   Object.assign(form, {
@@ -71,8 +88,20 @@ function resetForm() {
     healthTags: [],
     targetGoals: ['BALANCED'],
     steps: [],
-    ingredientsJson: '[{"ingredientId":1,"quantity":100,"unit":"g","core":true}]',
+    ingredients: [{ ingredientId: null, quantity: 100, unit: 'g', core: true }],
   })
+}
+
+async function ensureIngredientsLoaded() {
+  if (ingredients.value.length || ingredientLoading.value) return
+  ingredientLoading.value = true
+  try {
+    ingredients.value = await listIngredients()
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '食材库加载失败')
+  } finally {
+    ingredientLoading.value = false
+  }
 }
 
 async function load() {
@@ -91,7 +120,8 @@ async function load() {
   }
 }
 
-function openCreate() {
+async function openCreate() {
+  await ensureIngredientsLoaded()
   editingId.value = null
   resetForm()
   modalOpen.value = true
@@ -100,6 +130,7 @@ function openCreate() {
 async function openEdit(id: number) {
   saving.value = true
   try {
+    await ensureIngredientsLoaded()
     const detail = await getAdminRecipe(id)
     editingId.value = id
     Object.assign(form, {
@@ -117,16 +148,12 @@ async function openEdit(id: number) {
       healthTags: [...detail.healthTags],
       targetGoals: [...detail.targetGoals],
       steps: [...detail.steps],
-      ingredientsJson: JSON.stringify(
-        detail.ingredients.map((item) => ({
-          ingredientId: item.ingredientId,
-          quantity: item.quantity,
-          unit: item.unit,
-          core: item.core,
-        })),
-        null,
-        2,
-      ),
+      ingredients: detail.ingredients.map((item) => ({
+        ingredientId: item.ingredientId,
+        quantity: item.quantity,
+        unit: item.unit,
+        core: item.core,
+      })),
     })
     modalOpen.value = true
   } catch (err) {
@@ -136,8 +163,49 @@ async function openEdit(id: number) {
   }
 }
 
+function addIngredientRow() {
+  form.ingredients.push({ ingredientId: null, quantity: 100, unit: 'g', core: false })
+}
+
+function removeIngredientRow(index: number) {
+  form.ingredients.splice(index, 1)
+  if (form.ingredients.length === 0) {
+    addIngredientRow()
+  }
+}
+
+function updateIngredientUnit(index: number, value: number | string | null) {
+  const ingredientId = typeof value === 'string' ? Number(value) : value
+  const ingredient = ingredients.value.find((item) => item.id === ingredientId)
+  if (ingredient) {
+    form.ingredients[index].unit = ingredient.unit
+  }
+}
+
 function buildPayload(): RecipeSaveRequest {
-  const ingredients = JSON.parse(form.ingredientsJson) as RecipeSaveRequest['ingredients']
+  const normalizedIngredients = form.ingredients.map((item, index) => {
+    if (!item.ingredientId) {
+      throw new Error(`第 ${index + 1} 行食材未选择`)
+    }
+    if (!item.quantity || item.quantity <= 0) {
+      throw new Error(`第 ${index + 1} 行食材数量必须大于 0`)
+    }
+    if (!item.unit.trim()) {
+      throw new Error(`第 ${index + 1} 行食材单位不能为空`)
+    }
+
+    return {
+      ingredientId: item.ingredientId,
+      quantity: item.quantity,
+      unit: item.unit.trim(),
+      core: item.core,
+    }
+  })
+
+  if (normalizedIngredients.length === 0) {
+    throw new Error('请至少添加一种食材')
+  }
+
   return {
     name: form.name,
     description: form.description,
@@ -153,7 +221,7 @@ function buildPayload(): RecipeSaveRequest {
     healthTags: form.healthTags,
     targetGoals: form.targetGoals,
     steps: form.steps,
-    ingredients,
+    ingredients: normalizedIngredients,
   }
 }
 
@@ -175,7 +243,7 @@ async function save() {
     modalOpen.value = false
     await load()
   } catch (err) {
-    message.error(err instanceof Error ? err.message : '保存菜谱失败，请检查食材 JSON')
+    message.error(err instanceof Error ? err.message : '保存菜谱失败')
   } finally {
     saving.value = false
   }
@@ -265,30 +333,64 @@ onMounted(load)
       <n-empty v-if="!loading && recipes.length === 0" description="暂无菜谱" />
     </div>
 
-    <n-modal v-model:show="modalOpen" preset="card" :title="editingId ? '编辑菜谱' : '新增菜谱'" class="recipe-modal">
-      <div class="recipe-form">
-        <n-form-item label="名称"><n-input v-model:value="form.name" /></n-form-item>
-        <n-form-item label="描述"><n-input v-model:value="form.description" type="textarea" /></n-form-item>
-        <n-form-item label="图片路径"><n-input v-model:value="form.imageUrl" /></n-form-item>
-        <div class="form-grid">
-          <n-form-item label="时间"><n-input-number v-model:value="form.cookingTime" :min="1" /></n-form-item>
-          <n-form-item label="难度"><n-select v-model:value="form.difficulty" :options="difficultyOptions" /></n-form-item>
-          <n-form-item label="份数"><n-input-number v-model:value="form.servings" :min="1" /></n-form-item>
-          <n-form-item label="热量"><n-input-number v-model:value="form.calories" :min="1" /></n-form-item>
-          <n-form-item label="蛋白质"><n-input-number v-model:value="form.protein" :min="0" /></n-form-item>
-          <n-form-item label="脂肪"><n-input-number v-model:value="form.fat" :min="0" /></n-form-item>
-          <n-form-item label="碳水"><n-input-number v-model:value="form.carbs" :min="0" /></n-form-item>
+    <n-drawer v-model:show="modalOpen" :width="820" placement="right">
+      <n-drawer-content :title="editingId ? '编辑菜谱' : '新增菜谱'" closable>
+        <div class="recipe-form">
+          <n-form-item label="名称"><n-input v-model:value="form.name" /></n-form-item>
+          <n-form-item label="描述"><n-input v-model:value="form.description" type="textarea" /></n-form-item>
+          <n-form-item label="图片路径"><n-input v-model:value="form.imageUrl" /></n-form-item>
+          <div class="form-grid">
+            <n-form-item label="时间"><n-input-number v-model:value="form.cookingTime" :min="1" /></n-form-item>
+            <n-form-item label="难度"><n-select v-model:value="form.difficulty" :options="difficultyOptions" /></n-form-item>
+            <n-form-item label="份数"><n-input-number v-model:value="form.servings" :min="1" /></n-form-item>
+            <n-form-item label="热量"><n-input-number v-model:value="form.calories" :min="1" /></n-form-item>
+            <n-form-item label="蛋白质"><n-input-number v-model:value="form.protein" :min="0" /></n-form-item>
+            <n-form-item label="脂肪"><n-input-number v-model:value="form.fat" :min="0" /></n-form-item>
+            <n-form-item label="碳水"><n-input-number v-model:value="form.carbs" :min="0" /></n-form-item>
+          </div>
+          <n-form-item label="口味标签"><n-dynamic-tags v-model:value="form.tasteTags" /></n-form-item>
+          <n-form-item label="健康标签"><n-dynamic-tags v-model:value="form.healthTags" /></n-form-item>
+          <n-form-item label="目标"><n-select v-model:value="form.targetGoals" multiple :options="goalOptions" /></n-form-item>
+          <n-form-item label="步骤"><n-dynamic-tags v-model:value="form.steps" /></n-form-item>
+
+          <section class="ingredient-editor">
+            <div class="ingredient-editor-head">
+              <div>
+                <strong>食材组成</strong>
+                <span>从食材库选择，数量会作为购物清单计算依据。</span>
+              </div>
+              <n-button size="small" secondary type="primary" @click="addIngredientRow">
+                <template #icon><n-icon><Plus /></n-icon></template>
+                添加食材
+              </n-button>
+            </div>
+
+            <n-spin :show="ingredientLoading">
+              <div class="ingredient-rows">
+                <div v-for="(item, index) in form.ingredients" :key="index" class="ingredient-row">
+                  <n-select
+                    v-model:value="item.ingredientId"
+                    :options="ingredientOptions"
+                    filterable
+                    clearable
+                    placeholder="选择食材"
+                    @update:value="updateIngredientUnit(index, $event)"
+                  />
+                  <n-input-number v-model:value="item.quantity" :min="1" placeholder="数量" />
+                  <n-input v-model:value="item.unit" placeholder="单位" />
+                  <n-checkbox v-model:checked="item.core">核心</n-checkbox>
+                  <n-button quaternary circle type="error" @click="removeIngredientRow(index)">
+                    <template #icon><n-icon><Trash2 /></n-icon></template>
+                  </n-button>
+                </div>
+              </div>
+            </n-spin>
+          </section>
+
+          <n-button block type="primary" :loading="saving" @click="save">保存</n-button>
         </div>
-        <n-form-item label="口味标签"><n-dynamic-tags v-model:value="form.tasteTags" /></n-form-item>
-        <n-form-item label="健康标签"><n-dynamic-tags v-model:value="form.healthTags" /></n-form-item>
-        <n-form-item label="目标"><n-select v-model:value="form.targetGoals" multiple :options="goalOptions" /></n-form-item>
-        <n-form-item label="步骤"><n-dynamic-tags v-model:value="form.steps" /></n-form-item>
-        <n-form-item label="食材 JSON">
-          <n-input v-model:value="form.ingredientsJson" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }" />
-        </n-form-item>
-        <n-button block type="primary" :loading="saving" @click="save">保存</n-button>
-      </div>
-    </n-modal>
+      </n-drawer-content>
+    </n-drawer>
   </section>
 </template>
 
@@ -378,14 +480,48 @@ td span {
   background: var(--sz-grain-soft);
 }
 
-.recipe-modal {
-  max-width: 760px;
-}
-
 .form-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+}
+
+.ingredient-editor {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-card);
+  background: rgba(248, 251, 245, 0.72);
+}
+
+.ingredient-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ingredient-editor-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.ingredient-editor-head span {
+  color: var(--sz-muted);
+  font-size: 13px;
+}
+
+.ingredient-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.ingredient-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 120px 90px 64px 36px;
+  gap: 8px;
+  align-items: center;
 }
 
 @media (max-width: 760px) {
@@ -397,6 +533,12 @@ td span {
 
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ingredient-editor-head,
+  .ingredient-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 }
 </style>

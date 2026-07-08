@@ -184,7 +184,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-默认地址：`http://localhost:8080`
+默认地址：`http://localhost:8081`
 
 ## 3. 前端
 
@@ -660,7 +660,7 @@ Expected: JWT test passes.
 After database import and backend startup:
 
 ```powershell
-curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"user1\",\"password\":\"123456\"}"
+curl -X POST http://localhost:8081/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"user1\",\"password\":\"123456\"}"
 ```
 
 Expected: JSON response includes `success: true`, a token, and role `USER`.
@@ -817,19 +817,19 @@ Delete recipe by setting `recipe.status = 0`.
 Manual check:
 
 ```powershell
-curl http://localhost:8080/api/admin/recipes
+curl http://localhost:8081/api/admin/recipes
 ```
 
 Expected: request without token fails.
 
 ```powershell
-curl http://localhost:8080/api/admin/recipes -H "Authorization: Bearer USER_TOKEN"
+curl http://localhost:8081/api/admin/recipes -H "Authorization: Bearer USER_TOKEN"
 ```
 
 Expected: normal user token fails.
 
 ```powershell
-curl http://localhost:8080/api/admin/recipes -H "Authorization: Bearer MAINTAINER_TOKEN"
+curl http://localhost:8081/api/admin/recipes -H "Authorization: Bearer MAINTAINER_TOKEN"
 ```
 
 Expected: maintainer token succeeds.
@@ -1242,7 +1242,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8081',
         changeOrigin: true
       }
     }

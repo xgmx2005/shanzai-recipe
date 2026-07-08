@@ -39,7 +39,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-默认地址：`http://localhost:8080`
+默认地址：`http://localhost:8081`
 
 如果本机 MySQL 密码不是 `root`，启动前设置环境变量：
 

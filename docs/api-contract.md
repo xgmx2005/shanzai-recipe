@@ -6,7 +6,7 @@
 
 ### 1.1 基础信息
 
-- Base URL: `http://localhost:8080`
+- Base URL: `http://localhost:8081`
 - API 前缀: `/api`
 - Content-Type: `application/json`
 - 时间字段格式: ISO-8601 字符串，例如 `2026-07-07T22:54:50`

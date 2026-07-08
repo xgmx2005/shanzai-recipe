@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Clock, ListChecks, Sparkles } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { createShoppingList } from '@/api/shopping'
@@ -7,6 +8,7 @@ import { getRecommendationHistory, listRecommendationHistory } from '@/api/recom
 import type { RecommendationHistoryDetail, RecommendationHistorySummary } from '@/types'
 
 const message = useMessage()
+const router = useRouter()
 const loading = ref(true)
 const detailLoading = ref(false)
 const creating = ref(false)
@@ -123,6 +125,9 @@ onMounted(load)
                   <strong>{{ recipe.name }}</strong>
                   <span>{{ recipe.calories }} kcal · {{ recipe.protein }}g 蛋白质</span>
                 </div>
+                <n-button secondary type="primary" size="small" @click="router.push(`/user/recipes/${recipe.id}`)">
+                  查看详情
+                </n-button>
               </article>
             </div>
           </template>
@@ -244,6 +249,10 @@ h1 {
 }
 
 .recipe-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 14px;
 }
 
