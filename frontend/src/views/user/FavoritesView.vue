@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Check, Heart, ListPlus, Trash2, X } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { listFavorites, unfavoriteRecipe } from '@/api/favorite'
@@ -8,6 +9,7 @@ import { backendAssetUrl } from '@/api/http'
 import type { FavoriteRecipe } from '@/types'
 
 const message = useMessage()
+const router = useRouter()
 const loading = ref(true)
 const creating = ref(false)
 const error = ref('')
@@ -143,7 +145,7 @@ onMounted(load)
           :alt="favorite.recipeName"
           @error="($event.target as HTMLImageElement).src = fallbackImage"
         />
-        <div>
+        <div class="favorite-card-body">
           <button
             type="button"
             class="select-pill"
@@ -156,10 +158,15 @@ onMounted(load)
           <h2>{{ favorite.recipeName }}</h2>
           <p>{{ favorite.description }}</p>
           <span>{{ favorite.calories }} kcal · {{ favorite.protein }}g 蛋白质</span>
-          <n-button tertiary type="error" size="small" @click.stop="removeFavorite(favorite.recipeId)">
-            <template #icon><n-icon><Trash2 /></n-icon></template>
-            取消收藏
-          </n-button>
+          <div class="card-actions">
+            <n-button secondary type="primary" size="small" @click.stop="router.push(`/user/recipes/${favorite.recipeId}`)">
+              查看详情
+            </n-button>
+            <n-button tertiary type="error" size="small" @click.stop="removeFavorite(favorite.recipeId)">
+              <template #icon><n-icon><Trash2 /></n-icon></template>
+              取消收藏
+            </n-button>
+          </div>
         </div>
       </article>
     </section>
@@ -211,6 +218,12 @@ h1 {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .ghost-action {
@@ -297,7 +310,7 @@ h1 {
   object-fit: cover;
 }
 
-.favorite-card div {
+.favorite-card-body {
   display: grid;
   gap: 10px;
   padding: 14px;

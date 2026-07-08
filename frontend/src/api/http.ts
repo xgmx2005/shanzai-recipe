@@ -20,6 +20,16 @@ function readToken() {
   }
 }
 
+function clearStoredAuth() {
+  localStorage.removeItem(AUTH_STORAGE_KEY)
+}
+
+function redirectToLogin() {
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login')
+  }
+}
+
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
   headers: {
@@ -47,6 +57,16 @@ http.interceptors.response.use(
     return response
   },
   (error: AxiosError<ApiResponse<null>>) => {
+    if (error.response?.status === 401) {
+      clearStoredAuth()
+      redirectToLogin()
+      return Promise.reject(new Error('登录已过期，请重新登录'))
+    }
+
+    if (error.response?.status === 403) {
+      return Promise.reject(new Error(error.response.data?.message || '没有权限访问该功能'))
+    }
+
     const message = error.response?.data?.message || error.message || '网络请求失败'
     return Promise.reject(new Error(message))
   },

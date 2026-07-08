@@ -5,23 +5,20 @@ import { ArrowRight, Flame, Salad, Sparkles } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
 import { getProfileSummary } from '@/api/profile'
-import { getRecipe, listRecipes } from '@/api/recipe'
+import { listRecipes } from '@/api/recipe'
 import { listRecommendationHistory } from '@/api/recommendation'
 import HealthSummaryCard from '@/components/HealthSummaryCard.vue'
 import RecipeCard from '@/components/RecipeCard.vue'
 import { useAuthStore } from '@/stores/auth'
-import type { ProfileSummary, RecipeCardModel, RecipeDetail, RecipeSummary } from '@/types'
+import type { ProfileSummary, RecipeCardModel, RecipeSummary } from '@/types'
 
 const router = useRouter()
 const message = useMessage()
 const auth = useAuthStore()
 const loading = ref(true)
-const detailLoading = ref(false)
 const error = ref('')
 const profileSummary = ref<ProfileSummary | null>(null)
 const recipes = ref<RecipeCardModel[]>([])
-const selectedRecipe = ref<RecipeDetail | null>(null)
-const detailOpen = ref(false)
 const recommendationCount = ref(0)
 const favoriteRecipeIds = ref<number[]>([])
 const favoritePendingRecipeIds = ref<number[]>([])
@@ -112,40 +109,56 @@ async function handleFavorite(id: number, nextFavorite: boolean) {
 }
 
 async function openRecipeDetail(id: number) {
-  detailOpen.value = true
-  detailLoading.value = true
-  selectedRecipe.value = null
-  try {
-    selectedRecipe.value = await getRecipe(id)
-  } catch (err) {
-    message.error(err instanceof Error ? err.message : '菜谱详情加载失败')
-    detailOpen.value = false
-  } finally {
-    detailLoading.value = false
-  }
+  await router.push(`/user/recipes/${id}`)
 }
 
 onMounted(async () => {
   loading.value = true
   error.value = ''
+  const warnings: string[] = []
   try {
-    const [profile, summary, recipeList, history, favoriteList] = await Promise.all([
-      auth.loadProfile(),
-      getProfileSummary(),
-      listRecipes(),
-      listRecommendationHistory(),
-      listFavorites(),
-    ])
-    profileSummary.value = summary
-    recipes.value = recipeList.slice(0, 4).map(toCard)
-    recommendationCount.value = history.length
-    favoriteRecipeIds.value = favoriteList.map((favorite) => favorite.recipeId)
+    const profile = await auth.loadProfile()
     auth.profile = { ...profile }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '首页数据加载失败'
-  } finally {
-    loading.value = false
+    warnings.push(err instanceof Error ? err.message : '健康档案加载失败')
   }
+
+  try {
+    profileSummary.value = await getProfileSummary()
+  } catch {
+    warnings.push('健康摘要加载失败')
+  }
+
+  try {
+    const recipeList = await listRecipes()
+    recipes.value = recipeList.slice(0, 4).map(toCard)
+  } catch {
+    warnings.push('菜谱推荐加载失败')
+  }
+
+  try {
+    const history = await listRecommendationHistory()
+    recommendationCount.value = history.length
+  } catch {
+    warnings.push('推荐历史加载失败')
+  }
+
+  try {
+    const favoriteList = await listFavorites()
+    favoriteRecipeIds.value = favoriteList.map((favorite) => favorite.recipeId)
+  } catch {
+    warnings.push('收藏状态加载失败')
+  }
+
+  if (warnings.length === 1) {
+    message.warning(warnings[0])
+  } else if (warnings.length > 1) {
+    message.warning('部分首页数据暂时不可用')
+  }
+  if (warnings.length && recipes.value.length === 0) {
+    error.value = warnings.join('；')
+  }
+  loading.value = false
 })
 </script>
 
@@ -246,37 +259,6 @@ onMounted(async () => {
       </div>
     </section>
 
-    <n-modal v-model:show="detailOpen" preset="card" class="recipe-detail-modal">
-      <n-spin :show="detailLoading">
-        <article v-if="selectedRecipe" class="recipe-detail">
-          <div>
-            <p class="sz-chip">{{ selectedRecipe.difficulty }}</p>
-            <h2>{{ selectedRecipe.name }}</h2>
-            <p>{{ selectedRecipe.description }}</p>
-          </div>
-          <div class="nutrition-row">
-            <span>{{ selectedRecipe.calories }} kcal</span>
-            <span>{{ selectedRecipe.protein }}g 蛋白质</span>
-            <span>{{ selectedRecipe.fat }}g 脂肪</span>
-            <span>{{ selectedRecipe.carbs }}g 碳水</span>
-          </div>
-          <section>
-            <h3>核心食材</h3>
-            <div class="ingredient-list">
-              <span v-for="item in selectedRecipe.ingredients" :key="`${item.ingredientId}-${item.name}`">
-                {{ item.name }} {{ item.quantity }}{{ item.unit }}
-              </span>
-            </div>
-          </section>
-          <section>
-            <h3>做法步骤</h3>
-            <ol>
-              <li v-for="step in selectedRecipe.steps" :key="step">{{ step }}</li>
-            </ol>
-          </section>
-        </article>
-      </n-spin>
-    </n-modal>
   </div>
 </template>
 
@@ -460,62 +442,6 @@ h1 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
-}
-
-.recipe-detail-modal {
-  max-width: 680px;
-}
-
-.recipe-detail {
-  display: grid;
-  gap: 18px;
-}
-
-.recipe-detail h2,
-.recipe-detail h3,
-.recipe-detail p,
-.recipe-detail ol {
-  margin: 0;
-}
-
-.recipe-detail > div:first-child {
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-}
-
-.recipe-detail > div:first-child p:last-child {
-  color: var(--sz-muted);
-  line-height: 1.7;
-}
-
-.nutrition-row,
-.ingredient-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.nutrition-row span,
-.ingredient-list span {
-  padding: 7px 12px;
-  border-radius: var(--sz-radius-pill);
-  color: var(--sz-deep-green);
-  background: var(--sz-mint);
-  font-weight: 800;
-}
-
-.recipe-detail section {
-  display: grid;
-  gap: 10px;
-}
-
-.recipe-detail ol {
-  display: grid;
-  gap: 8px;
-  padding-left: 20px;
-  color: var(--sz-text);
-  line-height: 1.7;
 }
 
 @media (max-width: 980px) {
