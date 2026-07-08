@@ -8,6 +8,7 @@ const props = defineProps<{
 }>()
 
 const bmi = computed(() => {
+  if (props.profile.bmi) return props.profile.bmi
   const meters = props.profile.heightCm / 100
   return Number((props.profile.weightKg / (meters * meters)).toFixed(2))
 })
@@ -19,6 +20,7 @@ const status = computed(() => {
 })
 
 const calories = computed(() => {
+  if (props.profile.dailyCalorieTarget) return props.profile.dailyCalorieTarget
   const base = props.profile.gender === '女' ? 1450 : 1700
   const goalOffset = props.profile.dietGoal === 'FAT_LOSS' ? -120 : props.profile.dietGoal === 'MUSCLE_GAIN' ? 220 : 0
   return base + goalOffset

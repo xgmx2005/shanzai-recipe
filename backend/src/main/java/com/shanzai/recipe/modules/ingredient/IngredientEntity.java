@@ -1,6 +1,7 @@
 package com.shanzai.recipe.modules.ingredient;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -14,9 +15,13 @@ public class IngredientEntity {
     private String name;
     private String category;
     private String unit;
+    @TableField("calories_per_100g")
     private Integer caloriesPer100g;
+    @TableField("protein_per_100g")
     private BigDecimal proteinPer100g;
+    @TableField("fat_per_100g")
     private BigDecimal fatPer100g;
+    @TableField("carbs_per_100g")
     private BigDecimal carbsPer100g;
     private String aliases;
     private LocalDateTime createdAt;

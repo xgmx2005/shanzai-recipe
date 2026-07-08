@@ -1,25 +1,75 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import GoalSegment from '@/components/GoalSegment.vue'
 import HealthSummaryCard from '@/components/HealthSummaryCard.vue'
 import IngredientTagInput from '@/components/IngredientTagInput.vue'
 import { useAuthStore } from '@/stores/auth'
-import type { Profile } from '@/types'
+import type { Profile, ProfileRequest } from '@/types'
 
 const auth = useAuthStore()
 const message = useMessage()
 const saving = ref(false)
+const loading = ref(true)
+const error = ref('')
 
-const form = reactive<Profile>({ ...auth.profile })
+const form = reactive<ProfileRequest>({
+  heightCm: auth.profile.heightCm,
+  weightKg: auth.profile.weightKg,
+  age: auth.profile.age,
+  gender: auth.profile.gender,
+  dietGoal: auth.profile.dietGoal,
+  tastePreferences: [...auth.profile.tastePreferences],
+  avoidIngredients: [...auth.profile.avoidIngredients],
+  allergyIngredients: [...auth.profile.allergyIngredients],
+  cookingTimePreference: auth.profile.cookingTimePreference,
+})
+
+function applyProfile(profile: Profile) {
+  Object.assign(form, {
+    heightCm: profile.heightCm,
+    weightKg: profile.weightKg,
+    age: profile.age,
+    gender: profile.gender,
+    dietGoal: profile.dietGoal,
+    tastePreferences: [...profile.tastePreferences],
+    avoidIngredients: [...profile.avoidIngredients],
+    allergyIngredients: [...profile.allergyIngredients],
+    cookingTimePreference: profile.cookingTimePreference,
+  })
+}
+
+const previewProfile = reactive<Profile>({ ...auth.profile, ...form })
 
 async function save() {
+  error.value = ''
   saving.value = true
-  await new Promise((resolve) => window.setTimeout(resolve, 600))
-  auth.saveProfile({ ...form })
-  saving.value = false
-  message.success('健康档案已保存')
+  try {
+    const saved = await auth.saveProfile({ ...form })
+    Object.assign(previewProfile, saved)
+    applyProfile(saved)
+    message.success('健康档案已保存')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '保存健康档案失败'
+    message.error(error.value)
+  } finally {
+    saving.value = false
+  }
 }
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const profile = await auth.loadProfile()
+    applyProfile(profile)
+    Object.assign(previewProfile, profile)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '健康档案加载失败'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>
@@ -30,8 +80,11 @@ async function save() {
       <p>档案会影响每日热量、推荐目标、忌口过滤和 AI 健康提示。</p>
     </section>
 
+    <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+
     <section class="profile-grid">
       <form class="profile-form sz-panel" @submit.prevent="save">
+        <n-skeleton v-if="loading" text :repeat="4" />
         <div class="form-section">
           <h2>身体信息</h2>
           <div class="field-grid">
@@ -52,6 +105,11 @@ async function save() {
             </n-form-item>
             <n-form-item label="性别">
               <n-segmented v-model:value="form.gender" :options="['女', '男']" />
+            </n-form-item>
+            <n-form-item label="烹饪时间偏好">
+              <n-input-number v-model:value="form.cookingTimePreference" :min="10" :max="120">
+                <template #suffix>分钟</template>
+              </n-input-number>
             </n-form-item>
           </div>
         </div>
@@ -74,7 +132,7 @@ async function save() {
       </form>
 
       <aside class="insight-column">
-        <HealthSummaryCard :profile="form" />
+        <HealthSummaryCard :profile="{ ...previewProfile, ...form }" />
         <article class="tip-card">
           <h3>推荐会如何使用档案？</h3>
           <ul>

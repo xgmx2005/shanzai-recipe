@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
+import { Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -12,7 +12,8 @@ const navItems = [
   { label: '健康档案', to: '/user/profile', icon: UserRound },
   { label: '智能推荐', to: '/user/recommend', icon: Sparkles },
   { label: '购物清单', to: '/user/shopping-lists', icon: ListChecks },
-  { label: '收藏与历史', to: '/user/favorites', icon: Heart },
+  { label: '收藏菜谱', to: '/user/favorites', icon: Heart },
+  { label: '推荐历史', to: '/user/history', icon: Clock },
 ]
 
 const nickname = computed(() => auth.user?.nickname ?? '小膳用户')
@@ -38,11 +39,9 @@ function logout() {
       </nav>
       <div class="user-menu">
         <span>{{ nickname }}</span>
-        <n-button size="small" quaternary circle aria-label="退出登录" @click="logout">
-          <template #icon>
-            <n-icon><LogOut /></n-icon>
-          </template>
-        </n-button>
+        <button type="button" class="logout-button" aria-label="退出登录" @click="logout">
+          <LogOut />
+        </button>
       </div>
     </header>
     <main class="sz-page page-content">
@@ -129,6 +128,31 @@ nav a.router-link-active {
   gap: 10px;
   color: var(--sz-text);
   font-weight: 700;
+}
+
+.logout-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--sz-muted);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+
+.logout-button:hover {
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+}
+
+.logout-button svg {
+  width: 17px;
+  height: 17px;
 }
 
 .page-content {

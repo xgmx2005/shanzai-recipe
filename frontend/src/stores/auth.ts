@@ -1,57 +1,131 @@
 import { defineStore } from 'pinia'
-import type { AuthUser, Profile, UserRole } from '@/types'
-import { demoProfile } from '@/mock/data'
+import { getCurrentUser, login as loginApi, register as registerApi } from '@/api/auth'
+import { AUTH_STORAGE_KEY } from '@/api/http'
+import { getProfile, saveProfile as saveProfileApi } from '@/api/profile'
+import type { AuthSession, AuthUser, Profile, ProfileRequest, UserRole } from '@/types'
 
-const STORAGE_KEY = 'shanzai-auth'
-
-interface AuthState {
-  user: AuthUser | null
-  profile: Profile
+const defaultProfile: Profile = {
+  heightCm: 165,
+  weightKg: 55,
+  age: 26,
+  gender: '女',
+  dietGoal: 'FAT_LOSS',
+  tastePreferences: ['清淡', '健康', '不油腻'],
+  avoidIngredients: [],
+  allergyIngredients: [],
+  cookingTimePreference: 30,
 }
 
-function readStoredUser(): AuthUser | null {
-  const raw = localStorage.getItem(STORAGE_KEY)
+interface AuthState {
+  token: string | null
+  user: AuthUser | null
+  profile: Profile
+  initialized: boolean
+}
+
+interface StoredAuth {
+  token: string
+  user: AuthUser
+}
+
+function readStoredAuth(): StoredAuth | null {
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY)
   if (!raw) return null
 
   try {
-    return JSON.parse(raw) as AuthUser
+    const stored = JSON.parse(raw) as StoredAuth
+    if (!stored.token || !stored.user) return null
+    return stored
   } catch {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(AUTH_STORAGE_KEY)
     return null
   }
 }
 
+function persistSession(session: AuthSession | { token: string; user: AuthUser }) {
+  const user =
+    'user' in session
+      ? session.user
+      : {
+          userId: session.userId,
+          username: session.username,
+          nickname: session.nickname,
+          role: session.role,
+        }
+
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: session.token, user }))
+}
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
-    user: readStoredUser(),
-    profile: { ...demoProfile },
+    token: readStoredAuth()?.token ?? null,
+    user: readStoredAuth()?.user ?? null,
+    profile: { ...defaultProfile },
+    initialized: false,
   }),
   getters: {
-    isLoggedIn: (state) => Boolean(state.user),
+    isLoggedIn: (state) => Boolean(state.token && state.user),
     role: (state): UserRole | null => state.user?.role ?? null,
   },
   actions: {
-    login(username: string, password: string) {
-      if (password !== '123456') {
-        throw new Error('账号或密码不正确')
-      }
-
-      const role: UserRole = username === 'maintainer' ? 'MAINTAINER' : 'USER'
+    async login(username: string, password: string) {
+      const session = await loginApi({ username, password })
+      return this.applySession(session)
+    },
+    async register(username: string, password: string, nickname: string) {
+      const session = await registerApi({ username, password, nickname })
+      return this.applySession(session)
+    },
+    applySession(session: AuthSession) {
       const user: AuthUser = {
-        username,
-        role,
-        nickname: role === 'MAINTAINER' ? '小膳维护员' : '小秦爱吃鱼',
+        userId: session.userId,
+        username: session.username,
+        nickname: session.nickname,
+        role: session.role,
       }
+      this.token = session.token
       this.user = user
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+      this.initialized = true
+      persistSession(session)
       return user
     },
-    logout() {
-      this.user = null
-      localStorage.removeItem(STORAGE_KEY)
+    async initSession() {
+      if (this.initialized) return this.user
+      if (!this.token) {
+        this.initialized = true
+        return null
+      }
+
+      try {
+        const user = await getCurrentUser()
+        this.user = user
+        persistSession({ token: this.token, user })
+        return user
+      } catch {
+        this.logout()
+        return null
+      } finally {
+        this.initialized = true
+      }
     },
-    saveProfile(profile: Profile) {
-      this.profile = { ...profile }
+    logout() {
+      this.token = null
+      this.user = null
+      this.profile = { ...defaultProfile }
+      this.initialized = true
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+    },
+    async loadProfile() {
+      const profile = await getProfile()
+      if (profile) {
+        this.profile = { ...profile }
+      }
+      return this.profile
+    },
+    async saveProfile(profile: ProfileRequest) {
+      const saved = await saveProfileApi(profile)
+      this.profile = { ...saved }
+      return saved
     },
   },
 })
