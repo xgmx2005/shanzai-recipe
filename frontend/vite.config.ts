@@ -19,4 +19,23 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('naive-ui')) return 'vendor-naive-ui'
+          if (id.includes('@css-render') || id.includes('vueuc') || id.includes('vooks') || id.includes('date-fns')) {
+            return 'vendor-naive-ui'
+          }
+          if (id.includes('@vue') || id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
+            return 'vendor-vue'
+          }
+          if (id.includes('@lucide')) return 'vendor-icons'
+          if (id.includes('axios')) return 'vendor-http'
+          return 'vendor'
+        },
+      },
+    },
+  },
 })

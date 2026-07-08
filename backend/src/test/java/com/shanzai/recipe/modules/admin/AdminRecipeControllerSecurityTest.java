@@ -42,6 +42,12 @@ class AdminRecipeControllerSecurityTest {
     }
 
     @Test
+    void staticRecipeImagesArePublic() throws Exception {
+        mockMvc.perform(get("/images/recipes/missing.jpg"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
     void adminRecipesAllowsMaintainer() throws Exception {
         when(recipeService.listAdminRecipes(isNull(), isNull(), isNull(), isNull())).thenReturn(List.of());
 
