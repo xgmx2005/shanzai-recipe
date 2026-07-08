@@ -60,6 +60,7 @@ function logout() {
 
 <style scoped>
 .user-shell {
+  --user-page-inline: clamp(32px, 3.75vw, 60px);
   min-height: 100vh;
   padding: 0 0 52px;
   background:
@@ -78,7 +79,7 @@ function logout() {
   width: 100%;
   max-width: none;
   min-height: 72px;
-  padding: 0 max(28px, calc((100vw - 1480px) / 2));
+  padding: 0 max(var(--user-page-inline), calc((100vw - 1800px) / 2));
   border-bottom: 1px solid rgba(223, 210, 191, 0.88);
   background: rgba(255, 253, 248, 0.94);
   box-shadow: 0 8px 24px rgba(23, 37, 31, 0.05);
@@ -208,13 +209,19 @@ nav a.router-link-active::after {
 }
 
 .page-content {
-  padding-top: 28px;
+  width: min(1800px, calc(100vw - (var(--user-page-inline) * 2)));
+  max-width: none;
+  padding-top: 18px;
 }
 
 @media (max-width: 920px) {
   .topbar {
     grid-template-columns: 1fr auto;
     padding: 12px 18px;
+  }
+
+  .page-content {
+    width: min(100% - 24px, 1180px);
   }
 
   .brand {
