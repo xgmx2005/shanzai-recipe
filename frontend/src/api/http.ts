@@ -55,6 +55,6 @@ http.interceptors.response.use(
 export function backendAssetUrl(url?: string) {
   if (!url) return ''
   if (/^https?:\/\//i.test(url)) return url
-  const origin = import.meta.env.VITE_BACKEND_ORIGIN ?? 'http://localhost:8080'
+  const origin = import.meta.env.VITE_BACKEND_ORIGIN ?? 'http://localhost:8081'
   return `${origin}${url.startsWith('/') ? url : `/${url}`}`
 }
