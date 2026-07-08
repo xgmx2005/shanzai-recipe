@@ -21,8 +21,12 @@ const recipes = ref<RecipeCardModel[]>([])
 const recommendationCount = ref(0)
 const favoriteRecipeIds = ref<number[]>([])
 const favoritePendingRecipeIds = ref<number[]>([])
-const fallbackImage =
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80'
+const fallbackImages = [
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80',
+  'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=900&q=80',
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
+  'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
+]
 
 const goalLabel = computed(() => {
   const labels = {
@@ -87,8 +91,12 @@ function recipeNameOf(id: number) {
   return recipes.value.find((recipe) => recipe.id === id)?.name ?? '这道菜'
 }
 
+function fallbackImageOf(seed = 0) {
+  return fallbackImages[Math.abs(seed) % fallbackImages.length]
+}
+
 function cardImage(recipe?: RecipeCardModel) {
-  return backendAssetUrl(recipe?.imageUrl) || fallbackImage
+  return backendAssetUrl(recipe?.imageUrl) || fallbackImageOf(recipe?.id)
 }
 
 function matchScore(index: number) {
@@ -208,7 +216,7 @@ onMounted(async () => {
         <p class="hero-note"><CheckCircle2 /> 你的档案已更新，推荐更精准</p>
       </div>
       <div v-if="heroRecipe" class="featured-recipe">
-        <img :src="cardImage(heroRecipe)" :alt="heroRecipe.name" @error="($event.target as HTMLImageElement).src = fallbackImage" />
+        <img :src="cardImage(heroRecipe)" :alt="heroRecipe.name" @error="($event.target as HTMLImageElement).src = fallbackImageOf(heroRecipe.id)" />
         <div class="featured-copy">
           <h2>{{ heroRecipe.name }}</h2>
           <span>今日推荐</span>
@@ -297,16 +305,17 @@ onMounted(async () => {
           v-for="recipe in recipes"
           :key="recipe.id"
           class="home-recipe-card"
+          @click="openRecipeDetail(recipe.id)"
         >
           <div class="home-recipe-image">
-            <img :src="cardImage(recipe)" :alt="recipe.name" @error="($event.target as HTMLImageElement).src = fallbackImage" />
+            <img :src="cardImage(recipe)" :alt="recipe.name" @error="($event.target as HTMLImageElement).src = fallbackImageOf(recipe.id)" />
             <span>匹配度 {{ matchScore(recipes.indexOf(recipe)) }}%</span>
             <button
               type="button"
               :class="{ 'is-favorite': isRecipeFavorite(recipe.id) }"
               :disabled="isFavoritePending(recipe.id)"
               :aria-label="isRecipeFavorite(recipe.id) ? '取消收藏' : '收藏'"
-              @click="handleFavorite(recipe.id, !isRecipeFavorite(recipe.id))"
+              @click.stop="handleFavorite(recipe.id, !isRecipeFavorite(recipe.id))"
             >
               <Heart />
             </button>
@@ -320,7 +329,6 @@ onMounted(async () => {
             <div class="tags">
               <span v-for="tag in (recipe.tags ?? []).slice(0, 2)" :key="tag">{{ tag }}</span>
             </div>
-            <button type="button" class="card-detail" @click="openRecipeDetail(recipe.id)">查看详情</button>
           </div>
         </article>
         <n-empty v-if="!loading && recipes.length === 0" description="暂无可展示菜谱" />
@@ -333,16 +341,16 @@ onMounted(async () => {
 <style scoped>
 .home-view {
   display: grid;
-  gap: 20px;
+  gap: 22px;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.82fr);
-  gap: 34px;
+  grid-template-columns: minmax(420px, 1fr) minmax(600px, 600px);
+  gap: clamp(48px, 4.25vw, 68px);
   align-items: center;
-  min-height: 310px;
-  padding: 44px 56px;
+  height: 314px;
+  padding: 28px clamp(48px, 10.2vw, 164px);
   border: 1px solid rgba(201, 221, 205, 0.92);
   border-radius: 24px;
   background:
@@ -361,7 +369,7 @@ h1 {
   margin: 0;
   max-width: 620px;
   color: var(--sz-evergreen);
-  font-size: 42px;
+  font-size: 44px;
   line-height: 1.16;
   letter-spacing: 0;
 }
@@ -423,7 +431,11 @@ h1 {
 
 .featured-recipe {
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) minmax(220px, 0.95fr);
+  grid-template-columns: minmax(280px, 1.08fr) minmax(250px, 0.92fr);
+  justify-self: end;
+  width: 100%;
+  height: 260px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 18px;
@@ -434,15 +446,15 @@ h1 {
 .featured-recipe img {
   width: 100%;
   height: 100%;
-  min-height: 214px;
+  min-height: 0;
   object-fit: cover;
 }
 
 .featured-copy {
   display: grid;
   align-content: center;
-  gap: 12px;
-  padding: 26px 28px;
+  gap: 8px;
+  padding: 18px 28px;
 }
 
 .featured-copy h2 {
@@ -464,7 +476,7 @@ h1 {
 
 .featured-copy ul {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -493,7 +505,7 @@ h1 {
 .featured-meta {
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 4px;
   color: var(--sz-muted);
   font-size: 13px;
 }
@@ -517,11 +529,11 @@ h1 {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .metric-card {
-  min-height: 118px;
+  min-height: 116px;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -631,7 +643,7 @@ h1 {
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px;
+  gap: 34px;
 }
 
 .quick-actions button {
@@ -648,6 +660,7 @@ h1 {
   color: var(--sz-ink);
   background: var(--sz-surface);
   box-shadow: var(--sz-shadow-soft);
+  cursor: pointer;
   text-align: left;
   cursor: pointer;
   transition:
@@ -717,7 +730,7 @@ h1 {
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  gap: 26px;
 }
 
 .home-recipe-card {
@@ -740,7 +753,7 @@ h1 {
 
 .home-recipe-image {
   position: relative;
-  aspect-ratio: 1.75 / 1;
+  aspect-ratio: 2.48 / 1;
   overflow: hidden;
 }
 
@@ -840,19 +853,6 @@ h1 {
   font-weight: 800;
 }
 
-.card-detail {
-  justify-self: start;
-  min-height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--sz-line);
-  border-radius: 8px;
-  color: var(--sz-green-dark);
-  background: transparent;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 @media (max-width: 980px) {
   .hero,
   .summary-grid {
@@ -873,6 +873,7 @@ h1 {
   }
 
   .hero {
+    height: auto;
     padding: 22px;
   }
 
