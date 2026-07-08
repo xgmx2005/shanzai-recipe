@@ -1,17 +1,24 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = defineProps<{
   label: string
   placeholder?: string
 }>()
 
 const tags = defineModel<string[]>({ required: true })
+const labelId = computed(() => `tag-field-${props.label.replace(/\s+/g, '-')}`)
 </script>
 
 <template>
-  <label class="tag-field">
-    <span>{{ label }}</span>
-    <n-dynamic-tags v-model:value="tags" :input-props="{ placeholder: placeholder ?? '输入后回车添加' }" />
-  </label>
+  <div class="tag-field">
+    <span :id="labelId" class="tag-field-label">{{ label }}</span>
+    <n-dynamic-tags
+      v-model:value="tags"
+      :aria-labelledby="labelId"
+      :input-props="{ placeholder: placeholder ?? '输入后回车添加', 'aria-label': `${label}，输入后回车添加` }"
+    />
+  </div>
 </template>
 
 <style scoped>
@@ -20,7 +27,7 @@ const tags = defineModel<string[]>({ required: true })
   gap: 10px;
 }
 
-.tag-field > span {
+.tag-field-label {
   color: var(--sz-text);
   font-size: 14px;
   font-weight: 700;
