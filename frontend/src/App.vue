@@ -35,46 +35,7 @@ const themeOverrides: GlobalThemeOverrides = {
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
     <n-message-provider>
-      <router-view v-slot="{ Component, route }">
-        <transition :name="route.meta.authPage ? 'auth-route' : undefined" mode="out-in">
-          <component :is="Component" :key="route.fullPath" />
-        </transition>
-      </router-view>
+      <router-view />
     </n-message-provider>
   </n-config-provider>
 </template>
-
-<style>
-.auth-route-enter-active,
-.auth-route-leave-active {
-  transition:
-    opacity 0.24s ease,
-    transform 0.24s ease,
-    filter 0.24s ease;
-}
-
-.auth-route-enter-from {
-  opacity: 0;
-  filter: blur(8px);
-  transform: translateY(14px) scale(0.985);
-}
-
-.auth-route-leave-to {
-  opacity: 0;
-  filter: blur(6px);
-  transform: translateY(-10px) scale(0.99);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-route-enter-active,
-  .auth-route-leave-active {
-    transition: opacity 0.01s linear;
-  }
-
-  .auth-route-enter-from,
-  .auth-route-leave-to {
-    filter: none;
-    transform: none;
-  }
-}
-</style>
