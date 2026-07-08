@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
+import { Bell, ChevronDown, Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -38,7 +38,15 @@ function logout() {
         </router-link>
       </nav>
       <div class="user-menu">
-        <span>{{ nickname }}</span>
+        <div class="avatar" aria-hidden="true">{{ nickname.slice(0, 1) }}</div>
+        <div class="user-copy">
+          <span>{{ nickname }}</span>
+          <small>日常健康</small>
+        </div>
+        <ChevronDown class="chevron" />
+        <button type="button" class="notice-button" aria-label="通知">
+          <Bell />
+        </button>
         <button type="button" class="logout-button" aria-label="退出登录" @click="logout">
           <LogOut />
         </button>
@@ -47,33 +55,34 @@ function logout() {
     <main class="sz-page page-content">
       <router-view />
     </main>
-    <button class="floating-recommend" type="button" aria-label="快速生成推荐" @click="router.push('/user/recommend')">
-      <Sparkles />
-    </button>
   </div>
 </template>
 
 <style scoped>
 .user-shell {
   min-height: 100vh;
-  padding: 22px 0 52px;
+  padding: 0 0 52px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(220, 239, 228, 0.46), transparent 30%),
+    linear-gradient(180deg, #fffdf8 0%, var(--sz-bg-soft) 100%);
 }
 
 .topbar {
   position: sticky;
-  top: 14px;
+  top: 0;
   z-index: 20;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 28px;
+  gap: 24px;
   align-items: center;
-  min-height: 78px;
-  padding: 12px 18px 12px 22px;
-  border: 1px solid rgba(223, 210, 191, 0.96);
-  border-radius: 26px;
-  background: rgba(255, 250, 241, 0.9);
-  box-shadow: 0 9px 24px rgba(23, 37, 31, 0.07);
-  backdrop-filter: blur(20px);
+  width: 100%;
+  max-width: none;
+  min-height: 72px;
+  padding: 0 max(28px, calc((100vw - 1480px) / 2));
+  border-bottom: 1px solid rgba(223, 210, 191, 0.88);
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 8px 24px rgba(23, 37, 31, 0.05);
+  backdrop-filter: blur(18px);
 }
 
 .brand {
@@ -83,7 +92,7 @@ function logout() {
 
 .brand strong {
   color: var(--sz-deep-green);
-  font-size: 30px;
+  font-size: 32px;
   line-height: 1;
 }
 
@@ -95,21 +104,20 @@ function logout() {
 nav {
   display: flex;
   justify-content: center;
-  gap: 4px;
+  gap: 22px;
 }
 
 nav a {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: var(--sz-radius-pill);
+  min-height: 72px;
+  padding: 0 2px;
   color: var(--sz-muted);
   font-weight: 700;
   transition:
-    color 0.18s ease,
-    background 0.18s ease;
+    color 0.18s ease;
 }
 
 nav svg {
@@ -119,17 +127,59 @@ nav svg {
 
 nav a.router-link-active {
   color: var(--sz-deep-green);
-  background: #d8eadf;
+}
+
+nav a.router-link-active::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: var(--sz-deep-green);
+  content: '';
 }
 
 .user-menu {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   color: var(--sz-text);
   font-weight: 700;
 }
 
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 2px solid #fff4e4;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--sz-green-dark), var(--sz-grain));
+  box-shadow: 0 7px 16px rgba(23, 37, 31, 0.14);
+  font-size: 15px;
+}
+
+.user-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 74px;
+}
+
+.user-copy small {
+  color: var(--sz-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chevron {
+  width: 15px;
+  height: 15px;
+  color: var(--sz-muted);
+}
+
+.notice-button,
 .logout-button {
   display: grid;
   place-items: center;
@@ -145,61 +195,42 @@ nav a.router-link-active {
     background 0.18s ease;
 }
 
+.notice-button:hover,
 .logout-button:hover {
   color: var(--sz-deep-green);
   background: var(--sz-mint);
 }
 
+.notice-button svg,
 .logout-button svg {
   width: 17px;
   height: 17px;
 }
 
 .page-content {
-  padding-top: 24px;
-}
-
-.floating-recommend {
-  position: fixed;
-  right: 28px;
-  bottom: 28px;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border: 0;
-  border-radius: 50%;
-  color: #ffffff;
-  background: var(--sz-evergreen);
-  box-shadow: 0 14px 28px rgba(18, 61, 45, 0.22);
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    background 0.18s ease;
-}
-
-.floating-recommend:hover {
-  background: var(--sz-green-dark);
-  transform: translateY(-2px);
-}
-
-.floating-recommend:active {
-  transform: scale(0.96);
-}
-
-.floating-recommend svg {
-  width: 22px;
-  height: 22px;
+  padding-top: 28px;
 }
 
 @media (max-width: 920px) {
   .topbar {
     grid-template-columns: 1fr auto;
+    padding: 12px 18px;
+  }
+
+  .brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .user-menu {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
   }
 
   nav {
     grid-column: 1 / -1;
+    grid-row: 2;
     justify-content: flex-start;
     overflow-x: auto;
     padding-bottom: 2px;
@@ -207,15 +238,18 @@ nav a.router-link-active {
 }
 
 @media (max-width: 560px) {
-  .user-menu span,
+  .user-copy,
   .brand span,
   nav a span {
     display: none;
   }
 
-  .floating-recommend {
-    right: 18px;
-    bottom: 18px;
+  nav {
+    gap: 14px;
+  }
+
+  nav a {
+    min-height: 34px;
   }
 }
 </style>

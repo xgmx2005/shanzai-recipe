@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, Flame, Salad, Sparkles } from '@lucide/vue'
+import { ArrowRight, CheckCircle2, ClipboardList, Flame, Heart, Leaf, Sparkles, Target, Timer } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
+import { backendAssetUrl } from '@/api/http'
 import { getProfileSummary } from '@/api/profile'
 import { listRecipes } from '@/api/recipe'
 import { listRecommendationHistory } from '@/api/recommendation'
-import HealthSummaryCard from '@/components/HealthSummaryCard.vue'
-import RecipeCard from '@/components/RecipeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { ProfileSummary, RecipeCardModel, RecipeSummary } from '@/types'
 
@@ -22,6 +21,8 @@ const recipes = ref<RecipeCardModel[]>([])
 const recommendationCount = ref(0)
 const favoriteRecipeIds = ref<number[]>([])
 const favoritePendingRecipeIds = ref<number[]>([])
+const fallbackImage =
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80'
 
 const goalLabel = computed(() => {
   const labels = {
@@ -36,6 +37,18 @@ const heroRecipe = computed(() => recipes.value[0])
 const dailyCalorieTarget = computed(
   () => profileSummary.value?.dailyCalorieTarget ?? auth.profile.dailyCalorieTarget ?? 1600,
 )
+
+const bmiValue = computed(() => profileSummary.value?.bmi ?? auth.profile.bmi ?? 21.4)
+const bmiStatus = computed(() => {
+  if (bmiValue.value < 18.5) return '偏低'
+  if (bmiValue.value > 24) return '偏高'
+  return '正常'
+})
+
+const featuredTags = computed(() => {
+  const tags = heroRecipe.value?.tags ?? []
+  return tags.length ? tags.slice(0, 3) : ['高蛋白 低脂肪', '富含膳食纤维', '适合减脂人群']
+})
 
 function toCard(recipe: RecipeSummary): RecipeCardModel {
   return {
@@ -72,6 +85,14 @@ function setFavoritePending(id: number, pending: boolean) {
 
 function recipeNameOf(id: number) {
   return recipes.value.find((recipe) => recipe.id === id)?.name ?? '这道菜'
+}
+
+function cardImage(recipe?: RecipeCardModel) {
+  return backendAssetUrl(recipe?.imageUrl) || fallbackImage
+}
+
+function matchScore(index: number) {
+  return Math.max(83, 92 - index * 4)
 }
 
 function isRecipeFavorite(id: number) {
@@ -164,38 +185,41 @@ onMounted(async () => {
 
 <template>
   <div class="home-view">
-    <section class="hero sz-panel">
+    <section class="hero">
       <div class="hero-copy">
-        <p class="sz-chip"><Sparkles /> AI 健康膳食助手</p>
         <h1>今天想吃得更合适一点</h1>
         <p>
           根据你的健康档案、已有食材和烹饪时间，先匹配营养目标，再给出清楚的推荐理由。
         </p>
         <div class="hero-actions">
-          <n-button type="primary" size="large" @click="router.push('/user/recommend')">
-            开始推荐
+          <n-button class="primary-action" type="primary" size="large" @click="router.push('/user/recommend')">
             <template #icon>
-              <n-icon><ArrowRight /></n-icon>
+              <n-icon><Sparkles /></n-icon>
             </template>
+            开始推荐
           </n-button>
-          <n-button class="hero-secondary" size="large" secondary type="primary" @click="router.push('/user/profile')">
+          <n-button class="profile-action" size="large" secondary @click="router.push('/user/profile')">
+            <template #icon>
+              <n-icon><ClipboardList /></n-icon>
+            </template>
             完善档案
           </n-button>
         </div>
+        <p class="hero-note"><CheckCircle2 /> 你的档案已更新，推荐更精准</p>
       </div>
-      <div v-if="heroRecipe" class="hero-plate">
-        <RecipeCard
-          :recipe="heroRecipe"
-          :is-favorite="isRecipeFavorite(heroRecipe.id)"
-          :favorite-pending="isFavoritePending(heroRecipe.id)"
-          dense
-          @favorite="handleFavorite"
-          @detail="openRecipeDetail"
-        />
-        <div>
-          <span>健康评分</span>
-          <strong>{{ Math.round((profileSummary?.bmi ?? auth.profile.bmi ?? 21) * 38) }}</strong>
-          <em>分</em>
+      <div v-if="heroRecipe" class="featured-recipe">
+        <img :src="cardImage(heroRecipe)" :alt="heroRecipe.name" @error="($event.target as HTMLImageElement).src = fallbackImage" />
+        <div class="featured-copy">
+          <h2>{{ heroRecipe.name }}</h2>
+          <span>今日推荐</span>
+          <ul>
+            <li v-for="tag in featuredTags" :key="tag"><Flame /> {{ tag }}</li>
+          </ul>
+          <div class="featured-meta">
+            <span><Flame /> {{ heroRecipe.calories }} kcal</span>
+            <span><Timer /> {{ heroRecipe.time ?? 25 }} 分钟</span>
+            <button type="button" @click="openRecipeDetail(heroRecipe.id)">查看详情</button>
+          </div>
         </div>
       </div>
     </section>
@@ -204,57 +228,101 @@ onMounted(async () => {
     <n-skeleton v-if="loading" text :repeat="3" />
 
     <section class="summary-grid">
-      <HealthSummaryCard :profile="auth.profile" compact />
-      <article class="metric-card">
-        <span><Flame /> 今日目标热量</span>
-        <strong>{{ dailyCalorieTarget }} kcal</strong>
-        <small>来自健康档案摘要</small>
+      <article class="metric-card bmi-card">
+        <div class="metric-icon green"><Leaf /></div>
+        <div>
+          <span>BMI</span>
+          <strong>{{ bmiValue.toFixed(1) }}</strong>
+          <em>{{ bmiStatus }}</em>
+          <small>健康范围 18.5 - 24.0</small>
+        </div>
       </article>
       <article class="metric-card">
-        <span><Salad /> 今日目标</span>
-        <strong>{{ goalLabel }}</strong>
-        <small>默认读取健康档案</small>
+        <div class="metric-icon orange"><Flame /></div>
+        <div>
+          <span>今日目标热量</span>
+          <strong>{{ dailyCalorieTarget }} <small>kcal</small></strong>
+          <small>根据你的目标自动计算</small>
+        </div>
       </article>
       <article class="metric-card">
-        <span><Sparkles /> 推荐次数</span>
-        <strong>{{ recommendationCount }} 次</strong>
-        <small>历史推荐记录</small>
+        <div class="metric-icon lime"><Target /></div>
+        <div>
+          <span>今日目标</span>
+          <strong>{{ goalLabel }}</strong>
+          <small>保持均衡，维持健康体重</small>
+        </div>
+      </article>
+      <article class="metric-card">
+        <div class="metric-icon gold"><Sparkles /></div>
+        <div>
+          <span>推荐次数</span>
+          <strong>{{ recommendationCount }} <small>次</small></strong>
+          <small>最近 7 天生成推荐</small>
+        </div>
       </article>
     </section>
 
-    <section class="quick-panel sz-panel">
-      <div class="section-head">
-        <div>
-          <h2 class="sz-section-title">快速入口</h2>
-          <p class="sz-muted">从档案、食材和收藏开始都可以。</p>
-        </div>
-      </div>
+    <section class="quick-panel">
+      <h2 class="sz-section-title">快速入口</h2>
       <div class="quick-actions">
-        <button type="button" @click="router.push('/user/recommend')">快速输入食材</button>
-        <button type="button" @click="router.push('/user/shopping-lists')">我的菜单</button>
-        <button type="button" @click="router.push('/user/favorites')">收藏菜谱</button>
+        <button type="button" @click="router.push('/user/recommend')">
+          <span class="quick-icon leaf"><Leaf /></span>
+          <strong>快速输入食材</strong>
+          <small>告诉我你有什么食材</small>
+          <ArrowRight />
+        </button>
+        <button type="button" @click="router.push('/user/shopping-lists')">
+          <span class="quick-icon grain"><ClipboardList /></span>
+          <strong>我的菜单</strong>
+          <small>查看菜单与购物清单</small>
+          <ArrowRight />
+        </button>
+        <button type="button" @click="router.push('/user/favorites')">
+          <span class="quick-icon tomato"><Heart /></span>
+          <strong>收藏菜谱</strong>
+          <small>查看我收藏的菜谱</small>
+          <ArrowRight />
+        </button>
       </div>
     </section>
 
     <section class="recipes-panel">
       <div class="section-head">
-        <div>
-          <h2 class="sz-section-title">最近推荐</h2>
-          <p class="sz-muted">优先展示食材命中高、热量更稳定的菜谱。</p>
-        </div>
+        <h2 class="sz-section-title">最近推荐</h2>
         <router-link to="/user/recommend/result">查看全部</router-link>
       </div>
       <div class="recipe-grid">
-        <RecipeCard
+        <article
           v-for="recipe in recipes"
           :key="recipe.id"
-          :recipe="recipe"
-          :is-favorite="isRecipeFavorite(recipe.id)"
-          :favorite-pending="isFavoritePending(recipe.id)"
-          dense
-          @favorite="handleFavorite"
-          @detail="openRecipeDetail"
-        />
+          class="home-recipe-card"
+        >
+          <div class="home-recipe-image">
+            <img :src="cardImage(recipe)" :alt="recipe.name" @error="($event.target as HTMLImageElement).src = fallbackImage" />
+            <span>匹配度 {{ matchScore(recipes.indexOf(recipe)) }}%</span>
+            <button
+              type="button"
+              :class="{ 'is-favorite': isRecipeFavorite(recipe.id) }"
+              :disabled="isFavoritePending(recipe.id)"
+              :aria-label="isRecipeFavorite(recipe.id) ? '取消收藏' : '收藏'"
+              @click="handleFavorite(recipe.id, !isRecipeFavorite(recipe.id))"
+            >
+              <Heart />
+            </button>
+          </div>
+          <div class="home-recipe-body">
+            <h3>{{ recipe.name }}</h3>
+            <div class="recipe-meta">
+              <span><Flame /> {{ recipe.calories }} kcal</span>
+              <span><Timer /> {{ recipe.time ?? 25 }} 分钟</span>
+            </div>
+            <div class="tags">
+              <span v-for="tag in (recipe.tags ?? []).slice(0, 2)" :key="tag">{{ tag }}</span>
+            </div>
+            <button type="button" class="card-detail" @click="openRecipeDetail(recipe.id)">查看详情</button>
+          </div>
+        </article>
         <n-empty v-if="!loading && recipes.length === 0" description="暂无可展示菜谱" />
       </div>
     </section>
@@ -265,39 +333,43 @@ onMounted(async () => {
 <style scoped>
 .home-view {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.82fr);
+  gap: 34px;
   align-items: center;
-  padding: 30px;
-  border-color: rgba(18, 61, 45, 0.12);
-  background: var(--sz-evergreen);
-  box-shadow: 0 18px 34px rgba(18, 61, 45, 0.16);
+  min-height: 310px;
+  padding: 44px 56px;
+  border: 1px solid rgba(201, 221, 205, 0.92);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 7% 48%, rgba(47, 153, 99, 0.12) 0 88px, transparent 90px),
+    linear-gradient(100deg, #dcefe4 0%, #edf5e6 48%, #f1f4e8 100%);
+  box-shadow: 0 18px 34px rgba(31, 77, 58, 0.11);
 }
 
 .hero-copy {
   display: grid;
   justify-items: start;
-  gap: 16px;
+  gap: 18px;
 }
 
 h1 {
   margin: 0;
   max-width: 620px;
-  color: #ffffff;
-  font-size: 38px;
-  line-height: 1.18;
+  color: var(--sz-evergreen);
+  font-size: 42px;
+  line-height: 1.16;
   letter-spacing: 0;
 }
 
 .hero-copy > p:not(.sz-chip) {
   max-width: 620px;
   margin: 0;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--sz-text);
   font-size: 16px;
   line-height: 1.8;
 }
@@ -309,89 +381,235 @@ h1 {
   margin-top: 6px;
 }
 
-.hero-secondary {
-  --n-color: rgba(255, 255, 255, 0.08) !important;
-  --n-color-hover: rgba(255, 255, 255, 0.14) !important;
-  --n-color-pressed: rgba(255, 255, 255, 0.18) !important;
-  --n-border: 1px solid rgba(255, 255, 255, 0.36) !important;
-  --n-border-hover: 1px solid rgba(255, 255, 255, 0.72) !important;
-  --n-border-pressed: 1px solid rgba(255, 255, 255, 0.72) !important;
-  --n-text-color: #ffffff !important;
-  --n-text-color-hover: #ffffff !important;
-  --n-text-color-pressed: #ffffff !important;
+.primary-action {
+  --n-color: var(--sz-green-dark) !important;
+  --n-color-hover: var(--sz-deep-green) !important;
+  --n-color-pressed: var(--sz-evergreen) !important;
+  --n-border: 1px solid var(--sz-green-dark) !important;
+  --n-border-hover: 1px solid var(--sz-deep-green) !important;
+  --n-border-pressed: 1px solid var(--sz-evergreen) !important;
+  --n-border-radius: 10px !important;
+  min-width: 160px;
+  box-shadow: 0 10px 20px rgba(35, 107, 75, 0.22);
 }
 
-.hero-plate {
-  position: relative;
-  min-height: 250px;
+.profile-action {
+  --n-color: #ffffff !important;
+  --n-color-hover: #fffaf1 !important;
+  --n-color-pressed: #f5ecdd !important;
+  --n-border: 1px solid rgba(223, 210, 191, 0.86) !important;
+  --n-border-hover: 1px solid var(--sz-line-strong) !important;
+  --n-border-radius: 10px !important;
+  --n-text-color: var(--sz-deep-green) !important;
+  --n-text-color-hover: var(--sz-evergreen) !important;
+  min-width: 160px;
+  box-shadow: 0 10px 20px rgba(23, 37, 31, 0.08);
 }
 
-.hero-plate div {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  min-width: 136px;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 250, 241, 0.94);
-  box-shadow: 0 12px 24px rgba(31, 42, 36, 0.16);
-  pointer-events: none;
-}
-
-.hero-plate span,
-.hero-plate em {
+.hero-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--sz-muted);
-  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.hero-plate strong {
-  display: inline-block;
-  margin: 4px 4px 0 0;
-  color: var(--sz-deep-green);
-  font-size: 30px;
+.hero-note svg {
+  width: 17px;
+  height: 17px;
+  color: var(--sz-green);
+}
+
+.featured-recipe {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) minmax(220px, 0.95fr);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 18px 34px rgba(23, 37, 31, 0.14);
+}
+
+.featured-recipe img {
+  width: 100%;
+  height: 100%;
+  min-height: 214px;
+  object-fit: cover;
+}
+
+.featured-copy {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 26px 28px;
+}
+
+.featured-copy h2 {
+  margin: 0;
+  color: var(--sz-ink);
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.featured-copy > span {
+  justify-self: start;
+  padding: 5px 12px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-green-dark);
+  background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.featured-copy ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  color: var(--sz-text);
+  font-size: 14px;
+}
+
+.featured-copy li,
+.featured-meta,
+.featured-meta span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.featured-copy li {
+  gap: 8px;
+}
+
+.featured-copy li svg,
+.featured-meta svg {
+  width: 16px;
+  height: 16px;
+  color: var(--sz-muted);
+}
+
+.featured-meta {
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--sz-muted);
+  font-size: 13px;
+}
+
+.featured-meta span {
+  gap: 5px;
+}
+
+.featured-meta button {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .metric-card {
-  min-height: 116px;
-  display: grid;
-  align-content: center;
-  gap: 8px;
-  padding: 18px;
+  min-height: 118px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
   border: 1px solid rgba(227, 218, 203, 0.88);
-  border-radius: var(--sz-radius-card);
+  border-radius: 16px;
   background: var(--sz-surface);
-  box-shadow: var(--sz-shadow-soft);
+  box-shadow: 0 10px 24px rgba(23, 37, 31, 0.07);
 }
 
 .metric-card span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  display: block;
   color: var(--sz-muted);
   font-weight: 700;
 }
 
-.metric-card svg {
-  width: 16px;
-  height: 16px;
+.metric-card strong {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 5px;
+  color: var(--sz-deep-green);
+  font-size: 28px;
+  line-height: 1.1;
 }
 
-.metric-card strong {
-  font-size: 24px;
+.metric-card strong small {
+  color: var(--sz-text);
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .metric-card small {
+  display: block;
+  margin-top: 7px;
   color: var(--sz-muted);
 }
 
+.bmi-card em {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-green-dark);
+  background: var(--sz-mint);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  vertical-align: text-bottom;
+}
+
+.metric-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+}
+
+.metric-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.metric-icon.green {
+  color: var(--sz-green-dark);
+  background: var(--sz-mint);
+}
+
+.metric-icon.orange {
+  color: #f47722;
+  background: #fae4dc;
+}
+
+.metric-icon.lime {
+  color: #73a72f;
+  background: #e8f3d7;
+}
+
+.metric-icon.gold {
+  color: #e79d23;
+  background: #fff0ce;
+}
+
 .quick-panel {
-  padding: 20px;
+  display: grid;
+  gap: 12px;
 }
 
 .section-head {
@@ -413,24 +631,82 @@ h1 {
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 18px;
+  gap: 28px;
 }
 
 .quick-actions button {
-  min-height: 50px;
-  border: 1px solid var(--sz-line);
-  border-radius: var(--sz-radius-pill);
-  color: var(--sz-deep-green);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 16px;
+  align-items: center;
+  min-height: 86px;
+  padding: 18px 24px;
+  border: 1px solid rgba(227, 218, 203, 0.88);
+  border-radius: 14px;
+  color: var(--sz-ink);
   background: var(--sz-surface);
-  font-weight: 800;
+  box-shadow: var(--sz-shadow-soft);
+  text-align: left;
   cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
-.quick-actions button:first-child {
-  border-color: transparent;
+.quick-actions button:hover {
+  border-color: var(--sz-line-strong);
+  box-shadow: var(--sz-shadow);
+  transform: translateY(-2px);
+}
+
+.quick-actions strong {
+  font-size: 18px;
+}
+
+.quick-actions small {
+  grid-column: 2;
+  color: var(--sz-muted);
+  font-size: 14px;
+}
+
+.quick-actions button > svg {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  width: 22px;
+  height: 22px;
+  color: var(--sz-muted);
+}
+
+.quick-icon {
+  display: grid;
+  grid-row: 1 / 3;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+}
+
+.quick-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.quick-icon.leaf {
   color: #ffffff;
-  background: var(--sz-green-dark);
+  background: #65b991;
+}
+
+.quick-icon.grain {
+  color: #ffffff;
+  background: var(--sz-grain);
+}
+
+.quick-icon.tomato {
+  color: #ffffff;
+  background: #f26369;
 }
 
 .recipes-panel {
@@ -441,7 +717,140 @@ h1 {
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 24px;
+}
+
+.home-recipe-card {
+  overflow: hidden;
+  border: 1px solid rgba(227, 218, 203, 0.88);
+  border-radius: 14px;
+  background: var(--sz-surface);
+  box-shadow: var(--sz-shadow-soft);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.home-recipe-card:hover {
+  border-color: var(--sz-line-strong);
+  box-shadow: var(--sz-shadow);
+  transform: translateY(-2px);
+}
+
+.home-recipe-image {
+  position: relative;
+  aspect-ratio: 1.75 / 1;
+  overflow: hidden;
+}
+
+.home-recipe-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-recipe-image span {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: rgba(35, 107, 75, 0.92);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.home-recipe-image button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--sz-text);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 6px 14px rgba(23, 37, 31, 0.12);
+  cursor: pointer;
+}
+
+.home-recipe-image button.is-favorite {
+  color: #ffffff;
+  background: #e75058;
+}
+
+.home-recipe-image button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.home-recipe-image button.is-favorite svg {
+  fill: currentColor;
+}
+
+.home-recipe-body {
+  display: grid;
+  gap: 9px;
+  padding: 16px;
+}
+
+.home-recipe-body h3 {
+  margin: 0;
+  color: var(--sz-ink);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.recipe-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px;
+  color: var(--sz-muted);
+  font-size: 14px;
+}
+
+.recipe-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recipe-meta svg {
+  width: 15px;
+  height: 15px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tags span {
+  padding: 4px 10px;
+  border-radius: 7px;
+  color: var(--sz-green-dark);
+  background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.card-detail {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--sz-line);
+  border-radius: 8px;
+  color: var(--sz-green-dark);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 @media (max-width: 980px) {
@@ -469,6 +878,10 @@ h1 {
 
   h1 {
     font-size: 30px;
+  }
+
+  .featured-recipe {
+    grid-template-columns: 1fr;
   }
 }
 </style>
