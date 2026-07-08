@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, CheckCircle2, ClipboardList, Flame, Heart, Leaf, Sparkles, Target, Timer } from '@lucide/vue'
+import { ArrowRight, ClipboardList, Flame, Heart, Leaf, Sparkles, Target, Timer } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
 import { backendAssetUrl } from '@/api/http'
@@ -206,14 +206,7 @@ onMounted(async () => {
             </template>
             开始推荐
           </n-button>
-          <n-button class="profile-action" size="large" secondary @click="router.push('/user/profile')">
-            <template #icon>
-              <n-icon><ClipboardList /></n-icon>
-            </template>
-            完善档案
-          </n-button>
         </div>
-        <p class="hero-note"><CheckCircle2 /> 你的档案已更新，推荐更精准</p>
       </div>
       <div v-if="heroRecipe" class="featured-recipe">
         <img :src="cardImage(heroRecipe)" :alt="heroRecipe.name" @error="($event.target as HTMLImageElement).src = fallbackImageOf(heroRecipe.id)" />
@@ -399,34 +392,6 @@ h1 {
   --n-border-radius: 10px !important;
   min-width: 160px;
   box-shadow: 0 10px 20px rgba(35, 107, 75, 0.22);
-}
-
-.profile-action {
-  --n-color: #ffffff !important;
-  --n-color-hover: #fffaf1 !important;
-  --n-color-pressed: #f5ecdd !important;
-  --n-border: 1px solid rgba(223, 210, 191, 0.86) !important;
-  --n-border-hover: 1px solid var(--sz-line-strong) !important;
-  --n-border-radius: 10px !important;
-  --n-text-color: var(--sz-deep-green) !important;
-  --n-text-color-hover: var(--sz-evergreen) !important;
-  min-width: 160px;
-  box-shadow: 0 10px 20px rgba(23, 37, 31, 0.08);
-}
-
-.hero-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--sz-muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.hero-note svg {
-  width: 17px;
-  height: 17px;
-  color: var(--sz-green);
 }
 
 .featured-recipe {

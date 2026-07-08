@@ -13,6 +13,7 @@ const message = useMessage()
 const saving = ref(false)
 const loading = ref(true)
 const error = ref('')
+const saveSuccess = ref(false)
 const genderOptions = ['女', '男'] as const
 const goalLabels: Record<DietGoal, string> = {
   FAT_LOSS: '减脂控热量',
@@ -86,13 +87,16 @@ const completion = computed(() => {
 
 async function save() {
   error.value = ''
+  saveSuccess.value = false
   saving.value = true
   try {
     const saved = await auth.saveProfile({ ...form })
     Object.assign(previewProfile, saved)
     applyProfile(saved)
+    saveSuccess.value = true
     message.success('健康档案已保存')
   } catch (err) {
+    saveSuccess.value = false
     error.value = err instanceof Error ? err.message : '保存健康档案失败'
     message.error(error.value)
   } finally {
@@ -151,6 +155,13 @@ onMounted(async () => {
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+    <article v-if="saveSuccess" class="save-success" role="status" aria-live="polite">
+      <CheckCircle2 :size="22" />
+      <div>
+        <strong>保存完成</strong>
+        <span>健康档案已更新，新的推荐会使用这份最新信息。</span>
+      </div>
+    </article>
 
     <section class="profile-grid">
       <form class="profile-form sz-panel" @submit.prevent="save">
@@ -415,6 +426,39 @@ h1 {
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
   align-items: start;
+}
+
+.save-success {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 14px 18px;
+  border: 1px solid rgba(72, 168, 106, 0.28);
+  border-radius: 18px;
+  color: var(--sz-deep-green);
+  background: linear-gradient(135deg, rgba(220, 239, 228, 0.92), rgba(255, 250, 241, 0.96));
+  box-shadow: var(--sz-shadow-soft);
+}
+
+.save-success svg {
+  flex: 0 0 auto;
+  color: var(--sz-green-dark);
+}
+
+.save-success div {
+  display: grid;
+  gap: 4px;
+}
+
+.save-success strong {
+  color: var(--sz-evergreen);
+  font-size: 18px;
+}
+
+.save-success span {
+  color: var(--sz-text);
+  font-weight: 700;
 }
 
 .profile-form {
