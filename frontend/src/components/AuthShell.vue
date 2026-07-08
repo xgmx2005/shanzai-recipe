@@ -187,14 +187,29 @@ li svg {
 }
 
 .form-card {
-  width: min(420px, 100%);
+  width: min(430px, 100%);
+  min-height: 640px;
   display: grid;
-  gap: 18px;
+  align-content: center;
+  gap: 16px;
   padding: 34px;
   border: 1px solid rgba(227, 218, 203, 0.9);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 18px 44px rgba(31, 42, 36, 0.1);
+}
+
+.form-card :deep(.n-form-item) {
+  margin-bottom: 2px;
+}
+
+.form-card :deep(.n-form-item-label) {
+  min-height: 24px;
+  padding-bottom: 4px;
+}
+
+.form-card :deep(.n-form-item-feedback-wrapper) {
+  min-height: 8px;
 }
 
 .eyebrow {
@@ -245,6 +260,7 @@ h2 {
   }
 
   .form-card {
+    min-height: 0;
     padding: 26px 20px;
   }
 }
