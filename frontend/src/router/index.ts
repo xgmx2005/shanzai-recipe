@@ -34,22 +34,22 @@ const router = createRouter({
         {
           path: 'recommend/result',
           name: 'recommend-result',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/user/RecommendationHistoryView.vue'),
         },
         {
           path: 'shopping-lists',
           name: 'shopping-lists',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/user/ShoppingListsView.vue'),
         },
         {
           path: 'favorites',
           name: 'favorites',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/user/FavoritesView.vue'),
         },
         {
           path: 'history',
           name: 'history',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/user/RecommendationHistoryView.vue'),
         },
       ],
     },
@@ -64,20 +64,21 @@ const router = createRouter({
           name: 'admin-dashboard',
           component: () => import('@/views/admin/DashboardView.vue'),
         },
-        { path: 'recipes', name: 'admin-recipes', component: () => import('@/views/PlaceholderView.vue') },
+        { path: 'recipes', name: 'admin-recipes', component: () => import('@/views/admin/RecipesView.vue') },
         {
           path: 'ingredients',
           name: 'admin-ingredients',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/admin/IngredientsView.vue'),
         },
       ],
     },
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const requiredRole = to.meta.role
+  await auth.initSession()
 
   if (to.meta.public) {
     if (auth.role === 'USER') return '/user/home'

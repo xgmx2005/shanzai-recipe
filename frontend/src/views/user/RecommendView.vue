@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, reactive, ref } from 'vue'
 import { Sparkles } from '@lucide/vue'
+import { useMessage } from 'naive-ui'
+import { backendAssetUrl } from '@/api/http'
+import { createRecommendation } from '@/api/recommendation'
 import GoalSegment from '@/components/GoalSegment.vue'
 import IngredientTagInput from '@/components/IngredientTagInput.vue'
-import { quickIngredients, recipes } from '@/mock/data'
 import { useAuthStore } from '@/stores/auth'
-import type { RecommendForm } from '@/types'
+import type { RecommendForm, RecommendationResponse } from '@/types'
 
-const router = useRouter()
 const auth = useAuthStore()
+const message = useMessage()
 const loading = ref(false)
+const error = ref('')
+const result = ref<RecommendationResponse | null>(null)
+const quickIngredients = ['鸡胸肉', '番茄', '牛肉', '藜麦', '鸡蛋', '豆腐', '西兰花', '虾仁']
 
 const form = reactive<RecommendForm>({
   availableIngredients: ['鸡胸肉', '西兰花', '鸡蛋'],
-  avoidIngredients: ['香菜'],
+  excludedIngredients: [...auth.profile.avoidIngredients],
   dietGoal: auth.profile.dietGoal,
-  cookingTime: 25,
+  cookingTime: auth.profile.cookingTimePreference,
   servings: 1,
 })
 
@@ -27,11 +31,29 @@ function addIngredient(name: string) {
 }
 
 async function submit() {
+  error.value = ''
   loading.value = true
-  await new Promise((resolve) => window.setTimeout(resolve, 850))
-  loading.value = false
-  router.push('/user/recommend/result')
+  try {
+    result.value = await createRecommendation({ ...form })
+    message.success('推荐已生成')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '生成推荐失败'
+    message.error(error.value)
+  } finally {
+    loading.value = false
+  }
 }
+
+onMounted(async () => {
+  try {
+    const profile = await auth.loadProfile()
+    form.dietGoal = profile.dietGoal
+    form.excludedIngredients = [...profile.avoidIngredients, ...profile.allergyIngredients]
+    form.cookingTime = profile.cookingTimePreference
+  } catch {
+    // 未建档用户仍可直接填写条件生成推荐。
+  }
+})
 </script>
 
 <template>
@@ -39,8 +61,10 @@ async function submit() {
     <section class="title-block">
       <p class="sz-chip"><Sparkles /> 04 智能推荐</p>
       <h1>输入条件，生成今天的合适一餐</h1>
-      <p>先用 mock 数据完成交互，后续直接替换成推荐接口返回。</p>
+      <p>推荐会读取真实健康档案，并结合本次已有食材、排除食材和用餐人数生成。</p>
     </section>
+
+    <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
 
     <section class="recommend-grid">
       <form class="recommend-form sz-panel" @submit.prevent="submit">
@@ -60,7 +84,7 @@ async function submit() {
         </div>
 
         <IngredientTagInput
-          v-model="form.avoidIngredients"
+          v-model="form.excludedIngredients"
           label="排除食材"
           placeholder="例如 香菜"
         />
@@ -107,20 +131,25 @@ async function submit() {
 
       <aside class="preview-panel sz-panel">
         <div>
-          <p class="sz-chip">推荐预览</p>
-          <h2>可能优先命中的菜谱</h2>
+          <p class="sz-chip">推荐结果</p>
+          <h2>{{ result ? `本次推荐 #${result.historyId}` : '等待生成推荐' }}</h2>
         </div>
+        <n-alert v-if="result?.aiSummary" type="success" :bordered="false">
+          {{ result.aiSummary }}
+        </n-alert>
         <div class="preview-list">
-          <article v-for="recipe in recipes.slice(0, 3)" :key="recipe.id">
-            <img :src="recipe.imageUrl" :alt="recipe.name" />
+          <article v-for="recipe in result?.recipes ?? []" :key="recipe.id">
+            <img :src="backendAssetUrl(recipe.imageUrl)" :alt="recipe.name" />
             <div>
               <strong>{{ recipe.name }}</strong>
-              <span>{{ recipe.calories }} kcal | {{ recipe.protein }}g 蛋白质</span>
+              <span>{{ recipe.score }} 匹配 | {{ recipe.calories }} kcal | {{ recipe.protein }}g 蛋白质</span>
+              <small>{{ recipe.reason }}</small>
             </div>
           </article>
         </div>
+        <n-empty v-if="!result" description="填写左侧条件后生成推荐" />
         <n-alert type="info" :bordered="false">
-          结果页会展示 AI 健康提示、综合评分、已有食材命中和还需补买。
+          推荐结果来自 `/api/recommendations`，`historyId` 可用于后续查看历史详情。
         </n-alert>
       </aside>
     </section>
@@ -279,6 +308,12 @@ h2 {
 .preview-list span {
   color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
+}
+
+.preview-list small {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 @media (max-width: 940px) {

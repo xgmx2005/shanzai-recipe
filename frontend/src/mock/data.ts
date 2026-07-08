@@ -1,4 +1,4 @@
-import type { Profile, Recipe } from '@/types'
+import type { Profile, RecipeCardModel } from '@/types'
 
 export const demoProfile: Profile = {
   heightCm: 165,
@@ -9,9 +9,10 @@ export const demoProfile: Profile = {
   tastePreferences: ['清淡', '健康', '不油腻'],
   avoidIngredients: ['香菜'],
   allergyIngredients: [],
+  cookingTimePreference: 30,
 }
 
-export const recipes: Recipe[] = [
+export const recipes: RecipeCardModel[] = [
   {
     id: 1,
     name: '鸡胸肉西兰花轻食碗',

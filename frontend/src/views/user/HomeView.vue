@@ -1,14 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight, Flame, Salad, Sparkles } from '@lucide/vue'
+import { useMessage } from 'naive-ui'
+import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
+import { getProfileSummary } from '@/api/profile'
+import { getRecipe, listRecipes } from '@/api/recipe'
+import { listRecommendationHistory } from '@/api/recommendation'
 import HealthSummaryCard from '@/components/HealthSummaryCard.vue'
 import RecipeCard from '@/components/RecipeCard.vue'
-import { recipes } from '@/mock/data'
 import { useAuthStore } from '@/stores/auth'
+import type { ProfileSummary, RecipeCardModel, RecipeDetail, RecipeSummary } from '@/types'
 
 const router = useRouter()
+const message = useMessage()
 const auth = useAuthStore()
+const loading = ref(true)
+const detailLoading = ref(false)
+const error = ref('')
+const profileSummary = ref<ProfileSummary | null>(null)
+const recipes = ref<RecipeCardModel[]>([])
+const selectedRecipe = ref<RecipeDetail | null>(null)
+const detailOpen = ref(false)
+const recommendationCount = ref(0)
+const favoriteRecipeIds = ref<number[]>([])
+const favoritePendingRecipeIds = ref<number[]>([])
 
 const goalLabel = computed(() => {
   const labels = {
@@ -16,7 +32,120 @@ const goalLabel = computed(() => {
     BALANCED: '日常健康',
     MUSCLE_GAIN: '健身增肌',
   }
-  return labels[auth.profile.dietGoal]
+  return labels[profileSummary.value?.dietGoal ?? auth.profile.dietGoal]
+})
+
+const heroRecipe = computed(() => recipes.value[0])
+const dailyCalorieTarget = computed(
+  () => profileSummary.value?.dailyCalorieTarget ?? auth.profile.dailyCalorieTarget ?? 1600,
+)
+
+function toCard(recipe: RecipeSummary): RecipeCardModel {
+  return {
+    id: recipe.id,
+    name: recipe.name,
+    imageUrl: recipe.imageUrl,
+    calories: recipe.calories,
+    protein: recipe.protein,
+    time: recipe.cookingTime,
+    tags: [...recipe.healthTags, ...recipe.tasteTags],
+    reason: recipe.description,
+  }
+}
+
+function setFavoriteId(id: number, favorite: boolean) {
+  if (favorite) {
+    if (!favoriteRecipeIds.value.includes(id)) {
+      favoriteRecipeIds.value = [...favoriteRecipeIds.value, id]
+    }
+  } else {
+    favoriteRecipeIds.value = favoriteRecipeIds.value.filter((recipeId) => recipeId !== id)
+  }
+}
+
+function setFavoritePending(id: number, pending: boolean) {
+  if (pending) {
+    if (!favoritePendingRecipeIds.value.includes(id)) {
+      favoritePendingRecipeIds.value = [...favoritePendingRecipeIds.value, id]
+    }
+  } else {
+    favoritePendingRecipeIds.value = favoritePendingRecipeIds.value.filter((recipeId) => recipeId !== id)
+  }
+}
+
+function recipeNameOf(id: number) {
+  return recipes.value.find((recipe) => recipe.id === id)?.name ?? '这道菜'
+}
+
+function isRecipeFavorite(id: number) {
+  return favoriteRecipeIds.value.includes(id)
+}
+
+function isFavoritePending(id: number) {
+  return favoritePendingRecipeIds.value.includes(id)
+}
+
+async function syncFavorites() {
+  const favoriteList = await listFavorites()
+  favoriteRecipeIds.value = favoriteList.map((favorite) => favorite.recipeId)
+}
+
+async function handleFavorite(id: number, nextFavorite: boolean) {
+  if (isFavoritePending(id)) return
+  setFavoritePending(id, true)
+  try {
+    if (nextFavorite) {
+      const favorite = await favoriteRecipe(id)
+      setFavoriteId(id, true)
+      message.success(`已收藏「${favorite.recipeName}」`)
+    } else {
+      await unfavoriteRecipe(id)
+      setFavoriteId(id, false)
+      message.success(`已取消收藏「${recipeNameOf(id)}」`)
+    }
+    await syncFavorites()
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : nextFavorite ? '收藏失败' : '取消收藏失败')
+  } finally {
+    setFavoritePending(id, false)
+  }
+}
+
+async function openRecipeDetail(id: number) {
+  detailOpen.value = true
+  detailLoading.value = true
+  selectedRecipe.value = null
+  try {
+    selectedRecipe.value = await getRecipe(id)
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '菜谱详情加载失败')
+    detailOpen.value = false
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [profile, summary, recipeList, history, favoriteList] = await Promise.all([
+      auth.loadProfile(),
+      getProfileSummary(),
+      listRecipes(),
+      listRecommendationHistory(),
+      listFavorites(),
+    ])
+    profileSummary.value = summary
+    recipes.value = recipeList.slice(0, 4).map(toCard)
+    recommendationCount.value = history.length
+    favoriteRecipeIds.value = favoriteList.map((favorite) => favorite.recipeId)
+    auth.profile = { ...profile }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '首页数据加载失败'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -41,22 +170,32 @@ const goalLabel = computed(() => {
           </n-button>
         </div>
       </div>
-      <div class="hero-plate">
-        <img :src="recipes[0].imageUrl" alt="健康轻食碗" />
+      <div v-if="heroRecipe" class="hero-plate">
+        <RecipeCard
+          :recipe="heroRecipe"
+          :is-favorite="isRecipeFavorite(heroRecipe.id)"
+          :favorite-pending="isFavoritePending(heroRecipe.id)"
+          dense
+          @favorite="handleFavorite"
+          @detail="openRecipeDetail"
+        />
         <div>
           <span>健康评分</span>
-          <strong>820</strong>
+          <strong>{{ Math.round((profileSummary?.bmi ?? auth.profile.bmi ?? 21) * 38) }}</strong>
           <em>分</em>
         </div>
       </div>
     </section>
 
+    <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+    <n-skeleton v-if="loading" text :repeat="3" />
+
     <section class="summary-grid">
       <HealthSummaryCard :profile="auth.profile" compact />
       <article class="metric-card">
         <span><Flame /> 今日目标热量</span>
-        <strong>1600 kcal</strong>
-        <small>已摄入 620 kcal</small>
+        <strong>{{ dailyCalorieTarget }} kcal</strong>
+        <small>来自健康档案摘要</small>
       </article>
       <article class="metric-card">
         <span><Salad /> 今日目标</span>
@@ -65,8 +204,8 @@ const goalLabel = computed(() => {
       </article>
       <article class="metric-card">
         <span><Sparkles /> 推荐次数</span>
-        <strong>3 次</strong>
-        <small>本周</small>
+        <strong>{{ recommendationCount }} 次</strong>
+        <small>历史推荐记录</small>
       </article>
     </section>
 
@@ -93,9 +232,51 @@ const goalLabel = computed(() => {
         <router-link to="/user/recommend/result">查看全部</router-link>
       </div>
       <div class="recipe-grid">
-        <RecipeCard v-for="recipe in recipes" :key="recipe.id" :recipe="recipe" dense />
+        <RecipeCard
+          v-for="recipe in recipes"
+          :key="recipe.id"
+          :recipe="recipe"
+          :is-favorite="isRecipeFavorite(recipe.id)"
+          :favorite-pending="isFavoritePending(recipe.id)"
+          dense
+          @favorite="handleFavorite"
+          @detail="openRecipeDetail"
+        />
+        <n-empty v-if="!loading && recipes.length === 0" description="暂无可展示菜谱" />
       </div>
     </section>
+
+    <n-modal v-model:show="detailOpen" preset="card" class="recipe-detail-modal">
+      <n-spin :show="detailLoading">
+        <article v-if="selectedRecipe" class="recipe-detail">
+          <div>
+            <p class="sz-chip">{{ selectedRecipe.difficulty }}</p>
+            <h2>{{ selectedRecipe.name }}</h2>
+            <p>{{ selectedRecipe.description }}</p>
+          </div>
+          <div class="nutrition-row">
+            <span>{{ selectedRecipe.calories }} kcal</span>
+            <span>{{ selectedRecipe.protein }}g 蛋白质</span>
+            <span>{{ selectedRecipe.fat }}g 脂肪</span>
+            <span>{{ selectedRecipe.carbs }}g 碳水</span>
+          </div>
+          <section>
+            <h3>核心食材</h3>
+            <div class="ingredient-list">
+              <span v-for="item in selectedRecipe.ingredients" :key="`${item.ingredientId}-${item.name}`">
+                {{ item.name }} {{ item.quantity }}{{ item.unit }}
+              </span>
+            </div>
+          </section>
+          <section>
+            <h3>做法步骤</h3>
+            <ol>
+              <li v-for="step in selectedRecipe.steps" :key="step">{{ step }}</li>
+            </ol>
+          </section>
+        </article>
+      </n-spin>
+    </n-modal>
   </div>
 </template>
 
@@ -163,15 +344,6 @@ h1 {
   min-height: 250px;
 }
 
-.hero-plate img {
-  width: 100%;
-  height: 250px;
-  display: block;
-  object-fit: cover;
-  border: 6px solid rgba(255, 250, 241, 0.18);
-  border-radius: 24px;
-}
-
 .hero-plate div {
   position: absolute;
   right: 16px;
@@ -181,6 +353,7 @@ h1 {
   border-radius: 16px;
   background: rgba(255, 250, 241, 0.94);
   box-shadow: 0 12px 24px rgba(31, 42, 36, 0.16);
+  pointer-events: none;
 }
 
 .hero-plate span,
@@ -287,6 +460,62 @@ h1 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+
+.recipe-detail-modal {
+  max-width: 680px;
+}
+
+.recipe-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.recipe-detail h2,
+.recipe-detail h3,
+.recipe-detail p,
+.recipe-detail ol {
+  margin: 0;
+}
+
+.recipe-detail > div:first-child {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.recipe-detail > div:first-child p:last-child {
+  color: var(--sz-muted);
+  line-height: 1.7;
+}
+
+.nutrition-row,
+.ingredient-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nutrition-row span,
+.ingredient-list span {
+  padding: 7px 12px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-weight: 800;
+}
+
+.recipe-detail section {
+  display: grid;
+  gap: 10px;
+}
+
+.recipe-detail ol {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+  color: var(--sz-text);
+  line-height: 1.7;
 }
 
 @media (max-width: 980px) {

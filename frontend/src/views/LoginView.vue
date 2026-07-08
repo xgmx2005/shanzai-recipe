@@ -9,9 +9,11 @@ const router = useRouter()
 const message = useMessage()
 const auth = useAuthStore()
 
+const mode = ref<'login' | 'register'>('login')
 const form = reactive({
   username: 'user1',
   password: '123456',
+  nickname: '',
 })
 const loading = ref(false)
 const error = ref('')
@@ -20,20 +22,35 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await new Promise((resolve) => window.setTimeout(resolve, 450))
-    const user = auth.login(form.username.trim(), form.password)
-    message.success('登录成功')
-    router.push(user.role === 'MAINTAINER' ? '/admin/dashboard' : '/user/home')
+    const username = form.username.trim()
+    const password = form.password
+    const nickname = form.nickname.trim()
+    if (!username || !password) {
+      throw new Error('请填写账号和密码')
+    }
+    if (mode.value === 'register' && !nickname) {
+      throw new Error('请填写昵称')
+    }
+
+    const user =
+      mode.value === 'register'
+        ? await auth.register(username, password, nickname)
+        : await auth.login(username, password)
+    message.success(mode.value === 'register' ? '注册成功' : '登录成功')
+    await router.push(user.role === 'MAINTAINER' ? '/admin/dashboard' : '/user/home')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '登录失败'
+    error.value = err instanceof Error ? err.message : mode.value === 'register' ? '注册失败' : '登录失败'
+    message.error(error.value)
   } finally {
     loading.value = false
   }
 }
 
 function fillDemo(username: string) {
+  mode.value = 'login'
   form.username = username
   form.password = '123456'
+  form.nickname = ''
 }
 </script>
 
@@ -56,14 +73,24 @@ function fillDemo(username: string) {
 
       <section class="form-panel">
         <p class="eyebrow">01 登录 / 注册</p>
-        <h2>登录膳哉</h2>
-        <p class="sz-muted">根据你的身份进入个性化推荐或维护工作台。</p>
+        <h2>{{ mode === 'login' ? '登录膳哉' : '创建膳哉账号' }}</h2>
+        <p class="sz-muted">
+          {{ mode === 'login' ? '根据你的身份进入个性化推荐或维护工作台。' : '注册后默认进入用户端，先建立健康档案再生成推荐。' }}
+        </p>
+
+        <div class="mode-switch" role="tablist" aria-label="登录注册切换">
+          <button type="button" :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</button>
+          <button type="button" :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</button>
+        </div>
 
         <n-alert v-if="error" class="error" type="error" :bordered="false">
           {{ error }}
         </n-alert>
 
         <n-form @submit.prevent="submit">
+          <n-form-item v-if="mode === 'register'" label="昵称">
+            <n-input v-model:value="form.nickname" placeholder="请输入昵称" />
+          </n-form-item>
           <n-form-item label="账号">
             <n-input v-model:value="form.username" placeholder="请输入手机号 / 邮箱 / 用户名" />
           </n-form-item>
@@ -75,11 +102,12 @@ function fillDemo(username: string) {
               placeholder="请输入密码"
             />
           </n-form-item>
-          <div class="form-extra">
-            <n-checkbox>记住我</n-checkbox>
-            <a href="#">忘记密码？</a>
-          </div>
-          <n-button block size="large" type="primary" :loading="loading" @click="submit">登录</n-button>
+          <p class="form-hint">
+            {{ mode === 'login' ? '演示账号可直接登录；新用户请切换注册。' : '密码至少 6 位，注册成功后会自动登录。' }}
+          </p>
+          <n-button block size="large" type="primary" :loading="loading" @click="submit">
+            {{ mode === 'login' ? '登录' : '注册并进入' }}
+          </n-button>
         </n-form>
 
         <div class="demo-box">
@@ -225,17 +253,44 @@ h2 {
   margin-bottom: 16px;
 }
 
-.form-extra {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: -4px 0 20px;
-  color: var(--sz-muted);
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 22px 0 18px;
+  padding: 5px;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-pill);
+  background: var(--sz-surface-soft);
 }
 
-.form-extra a {
+.mode-switch button {
+  min-height: 38px;
+  border: 0;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-muted);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.mode-switch button.active {
   color: var(--sz-deep-green);
-  font-weight: 700;
+  background: var(--sz-surface);
+  box-shadow: 0 6px 16px rgba(23, 37, 31, 0.08);
+}
+
+.form-hint {
+  display: flex;
+  align-items: center;
+  margin: -4px 0 20px;
+  color: var(--sz-muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .demo-box {
