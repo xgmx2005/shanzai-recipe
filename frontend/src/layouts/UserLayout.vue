@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Bell, ChevronDown, Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
 ]
 
 const nickname = computed(() => auth.user?.nickname ?? '小膳用户')
+const isHomePage = computed(() => route.name === 'user-home')
 
 function logout() {
   auth.logout()
@@ -52,7 +54,7 @@ function logout() {
         </button>
       </div>
     </header>
-    <main class="sz-page page-content">
+    <main class="sz-page page-content" :class="{ 'is-home-page': isHomePage }">
       <router-view />
     </main>
   </div>
@@ -209,9 +211,14 @@ nav a.router-link-active::after {
 }
 
 .page-content {
+  width: min(1180px, calc(100vw - 40px));
+  max-width: 1180px;
+  padding-top: 18px;
+}
+
+.page-content.is-home-page {
   width: min(1800px, calc(100vw - (var(--user-page-inline) * 2)));
   max-width: none;
-  padding-top: 18px;
 }
 
 @media (max-width: 920px) {

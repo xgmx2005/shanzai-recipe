@@ -12,6 +12,7 @@ const message = useMessage()
 const saving = ref(false)
 const loading = ref(true)
 const error = ref('')
+const genderOptions = ['女', '男'] as const
 
 const form = reactive<ProfileRequest>({
   heightCm: auth.profile.heightCm,
@@ -104,7 +105,19 @@ onMounted(async () => {
               </n-input-number>
             </n-form-item>
             <n-form-item label="性别">
-              <n-segmented v-model:value="form.gender" :options="['女', '男']" />
+              <div class="gender-toggle" role="radiogroup" aria-label="性别">
+                <button
+                  v-for="gender in genderOptions"
+                  :key="gender"
+                  type="button"
+                  role="radio"
+                  :aria-checked="form.gender === gender"
+                  :class="{ active: form.gender === gender }"
+                  @click="form.gender = gender"
+                >
+                  {{ gender }}
+                </button>
+              </div>
             </n-form-item>
             <n-form-item label="烹饪时间偏好">
               <n-input-number v-model:value="form.cookingTimePreference" :min="10" :max="120">
@@ -199,6 +212,36 @@ h2 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.gender-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-height: 34px;
+  padding: 3px;
+  border: 1px solid var(--sz-line);
+  border-radius: 10px;
+  background: #f8f1e7;
+}
+
+.gender-toggle button {
+  border: 0;
+  border-radius: 8px;
+  color: var(--sz-muted);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.gender-toggle button.active {
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  box-shadow: 0 6px 12px rgba(35, 107, 75, 0.18);
 }
 
 .tag-grid {
