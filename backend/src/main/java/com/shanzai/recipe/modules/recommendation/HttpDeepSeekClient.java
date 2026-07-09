@@ -3,6 +3,8 @@ package com.shanzai.recipe.modules.recommendation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -17,6 +19,8 @@ import java.util.Optional;
 
 @Component
 public class HttpDeepSeekClient implements DeepSeekClient {
+    private static final Logger log = LoggerFactory.getLogger(HttpDeepSeekClient.class);
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
@@ -50,6 +54,7 @@ public class HttpDeepSeekClient implements DeepSeekClient {
     @Override
     public Optional<AiRecommendationText> generateRecommendationText(AiRecommendationContext context) {
         if (apiKey.isBlank()) {
+            log.info("[DEEPSEEK_FALLBACK_NO_KEY] DeepSeek API Key 未配置，已使用规则兜底");
             return Optional.empty();
         }
 
@@ -70,8 +75,15 @@ public class HttpDeepSeekClient implements DeepSeekClient {
                 .retrieve()
                 .body(DeepSeekChatResponse.class);
 
-            return parseResponse(response);
+            Optional<AiRecommendationText> parsed = parseResponse(response);
+            if (parsed.isPresent()) {
+                log.info("[DEEPSEEK_AI_SUCCESS] DeepSeek 推荐分析生成成功");
+            } else {
+                log.warn("[DEEPSEEK_FALLBACK_INVALID_RESPONSE] DeepSeek 返回内容不完整，已使用规则兜底");
+            }
+            return parsed;
         } catch (RuntimeException | JsonProcessingException exception) {
+            log.warn("[DEEPSEEK_FALLBACK_ERROR] DeepSeek 调用失败，已使用规则兜底：{}", exception.getMessage());
             return Optional.empty();
         }
     }
