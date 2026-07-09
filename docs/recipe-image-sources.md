@@ -7,7 +7,7 @@
 - 当前图片统一存放于 `frontend/public/images/recipes/`
 - 优先保证“真实照片 + 本地稳定可用”
 - 少数菜谱图片为相近菜式照片，用于演示阶段占位，后续可继续替换为更贴合的实拍图
-- 目前来源统一采用 Wikimedia Commons 公开图片页
+- 当前图片来源包含 Wikimedia Commons 公开图片页与 Pexels 官方 API 获取的免费图片
 
 | 本地文件 | 菜谱名 | 说明 | 来源页 |
 | --- | --- | --- | --- |
@@ -58,4 +58,29 @@ Recipes below were refreshed with closer Wikimedia Commons photos. Some are stil
 | `basa-sweet-potato-training-plate.jpg` | 巴沙鱼红薯训练餐 | 相近菜式，鱼肉与红薯训练餐贴合 | [Tilapia with roasted zucchini and sweet potato](https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Tilapia_with_roasted_zucchini_and_sweet_potato.jpg) |
 
 Phase 2 image licenses are recorded from Wikimedia Commons pages and include CC0, CC BY, and CC BY-SA variants. When presenting the project publicly, retain this source list or replace individual photos with self-owned images.
+
+## Premium Light Meal Refresh - Pexels
+
+This batch uses Pexels official API results to improve the visual quality of high-visibility recipe cards. Pexels photos can be used for free, and attribution is not required by the Pexels license, but this project records photographer and source links for traceability.
+
+| 本地文件 | 菜谱名 | 摄影师 | 来源页 |
+| --- | --- | --- | --- |
+| `pexels-chicken-broccoli-bowl.jpg` | 鸡胸肉西兰花轻食碗 | Loren Castillo | [Pexels photo 9213861](https://www.pexels.com/photo/a-close-up-shot-of-a-pasta-dish-9213861/) |
+| `pexels-tuna-egg-salad-bowl.jpg` | 金枪鱼生菜沙拉 | Alesia Kozik | [Pexels photo 6544260](https://www.pexels.com/photo/tuna-and-green-beans-with-egg-salad-in-ceramic-bowl-6544260/) |
+| `pexels-salmon-poke-bowl.jpg` | 三文鱼藜麦饭 | Valeria Boltneva | [Pexels photo 15913453](https://www.pexels.com/photo/bowl-of-food-15913453/) |
+| `pexels-bulgogi-beef-rice-bowl.jpg` | 黑椒牛肉糙米饭 | Luis Becerra Fotografo | [Pexels photo 5774000](https://www.pexels.com/photo/top-view-of-a-bulgogi-beef-bowl-5774000/) |
+| `pexels-tofu-broccoli-bowl.jpg` | 豆腐鸡肉蛋白餐 | Alesia Kozik | [Pexels photo 6120233](https://www.pexels.com/photo/cooked-food-on-white-ceramic-bowl-6120233/) |
+| `pexels-chicken-salad-bowl.jpg` | 鸡腿肉南瓜沙拉 | Valeria Boltneva | [Pexels photo 842545](https://www.pexels.com/photo/round-stainless-steel-bowl-with-cooked-meat-and-vegetables-842545/) |
+| `pexels-bibimbap-beef-rice-bowl.jpg` | 洋葱彩椒牛肉饭 | Luis Becerra Fotografo | [Pexels photo 5773972](https://www.pexels.com/photo/fried-egg-on-vegetables-5773972/) |
+| `pexels-chicken-kale-bowl.jpg` | 彩椒豆腐鸡肉盖饭 | Loren Castillo | [Pexels photo 9213874](https://www.pexels.com/photo/a-close-up-shot-of-a-delicious-dish-9213874/) |
+| `pexels-buddha-sweet-potato-bowl.jpg` | 孜然牛肉红薯碗 | Heather Brock | [Pexels photo 6978234](https://www.pexels.com/photo/mouthwatering-buddha-bowl-6978234/) |
+| `pexels-shrimp-avocado-salad.jpg` | 虾仁牛油果荞麦面 | Valeria Boltneva | [Pexels photo 10875293](https://www.pexels.com/photo/close-up-photograph-of-a-cuisine-with-shrimps-10875293/) |
+| `pexels-quinoa-chicken-bowl.jpg` | 牛肉毛豆藜麦饭 | kei photo | [Pexels photo 2741448](https://www.pexels.com/photo/top-view-photo-of-food-on-top-of-baking-rack-2741448/) |
+| `pexels-shrimp-poke-bowl.jpg` | 虾仁豆腐高蛋白盖饭 | Kei Scampa | [Pexels photo 4687067](https://www.pexels.com/photo/crop-person-cooking-poke-bowl-in-cafe-4687067/) |
+
+Notes:
+
+- Pexels API key is used only during local asset collection and must not be committed.
+- Runtime pages load local files under `/images/recipes/`, so the app does not depend on Pexels availability.
+- Some photos remain visually similar substitutes rather than exact dishes. Keep replacing them with self-owned or closer licensed images when available.
 
