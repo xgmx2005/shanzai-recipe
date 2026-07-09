@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ListChecks, Plus, Trash2 } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import {
@@ -10,9 +11,13 @@ import {
   updateShoppingListItem,
 } from '@/api/shopping'
 import { listRecipes } from '@/api/recipe'
+import IngredientIcon from '@/components/IngredientIcon.vue'
+import IngredientTagInput from '@/components/IngredientTagInput.vue'
 import type { RecipeSummary, ShoppingList, ShoppingListSummary } from '@/types'
 
 const message = useMessage()
+const route = useRoute()
+const router = useRouter()
 const loading = ref(true)
 const detailLoading = ref(false)
 const saving = ref(false)
@@ -32,6 +37,8 @@ const progress = computed(() => {
   const checked = activeList.value.items.filter((item) => item.checked).length
   return Math.round((checked / activeList.value.items.length) * 100)
 })
+const activeCheckedCount = computed(() => activeList.value?.items.filter((item) => item.checked).length ?? 0)
+const activeItemCount = computed(() => activeList.value?.items.length ?? 0)
 
 const recipeOptions = computed(() =>
   recipes.value.map((recipe) => ({
@@ -39,6 +46,16 @@ const recipeOptions = computed(() =>
     value: recipe.id,
   })),
 )
+
+function parseListId(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
+  const id = Number(raw)
+  return Number.isInteger(id) && id > 0 ? id : undefined
+}
+
+function preferredListIdFromRoute() {
+  return parseListId(route.query.listId)
+}
 
 async function loadRecipes() {
   try {
@@ -55,13 +72,15 @@ async function openCreate() {
   }
 }
 
-async function load() {
+async function load(preferredListId?: number) {
   loading.value = true
   error.value = ''
   try {
     lists.value = await listShoppingLists()
-    if (lists.value[0]) {
-      await openList(lists.value[0].id)
+    const requestedId = preferredListId ?? preferredListIdFromRoute()
+    const nextListId = lists.value.some((item) => item.id === requestedId) ? requestedId : lists.value[0]?.id
+    if (nextListId) {
+      await openList(nextListId)
     } else {
       activeList.value = null
     }
@@ -76,6 +95,14 @@ async function openList(id: number) {
   detailLoading.value = true
   try {
     activeList.value = await getShoppingList(id)
+    if (route.query.listId !== String(id)) {
+      void router.replace({
+        query: {
+          ...route.query,
+          listId: String(id),
+        },
+      })
+    }
   } catch (err) {
     message.error(err instanceof Error ? err.message : '购物清单详情加载失败')
   } finally {
@@ -89,9 +116,18 @@ async function toggleItem(itemId: number, checked: boolean) {
     const item = await updateShoppingListItem(activeList.value.id, itemId, checked)
     const target = activeList.value.items.find((value) => value.id === itemId)
     if (target) Object.assign(target, item)
+    syncActiveSummary()
   } catch (err) {
     message.error(err instanceof Error ? err.message : '更新勾选状态失败')
   }
+}
+
+function syncActiveSummary() {
+  if (!activeList.value) return
+  const target = lists.value.find((item) => item.id === activeList.value?.id)
+  if (!target) return
+  target.checkedCount = activeCheckedCount.value
+  target.itemCount = activeItemCount.value
 }
 
 function onItemChecked(itemId: number, value: boolean) {
@@ -113,8 +149,8 @@ async function createList() {
     })
     createOpen.value = false
     form.recipeIds = []
-    activeList.value = list
-    await load()
+    form.availableIngredients = []
+    await load(list.id)
     message.success('购物清单已创建')
   } catch (err) {
     message.error(err instanceof Error ? err.message : '创建购物清单失败')
@@ -133,9 +169,7 @@ async function removeList(id: number) {
   }
 }
 
-onMounted(async () => {
-  await Promise.all([load(), loadRecipes()])
-})
+onMounted(load)
 </script>
 
 <template>
@@ -176,8 +210,9 @@ onMounted(async () => {
           <template v-if="activeList">
             <div class="detail-head">
               <div>
-                <p class="sz-chip">ACTIVE</p>
+                <p class="sz-chip">当前清单</p>
                 <h2>{{ activeList.title }}</h2>
+                <span>{{ activeCheckedCount }}/{{ activeItemCount }} 已完成</span>
               </div>
               <n-button tertiary type="error" @click="removeList(activeList.id)">
                 <template #icon><n-icon><Trash2 /></n-icon></template>
@@ -188,7 +223,8 @@ onMounted(async () => {
             <div class="items">
               <label v-for="item in activeList.items" :key="item.id" :class="{ checked: item.checked }">
                 <n-checkbox :checked="item.checked" @update:checked="(value: boolean) => onItemChecked(item.id, value)" />
-                <span>{{ item.ingredientName }}</span>
+                <IngredientIcon :name="item.ingredientName" :size="38" />
+                <span class="item-name">{{ item.ingredientName }}</span>
                 <em>{{ item.quantity }}{{ item.unit }}</em>
                 <small>{{ item.category }}</small>
               </label>
@@ -199,7 +235,13 @@ onMounted(async () => {
       </section>
     </section>
 
-    <n-modal v-model:show="createOpen" preset="card" title="创建购物清单" class="create-modal">
+    <n-modal
+      v-model:show="createOpen"
+      preset="card"
+      title="创建购物清单"
+      class="create-modal"
+      :style="{ width: '460px', maxWidth: 'calc(100vw - 32px)' }"
+    >
       <div class="create-form">
         <n-form-item label="标题">
           <n-input v-model:value="form.title" />
@@ -213,11 +255,8 @@ onMounted(async () => {
             placeholder="搜索菜名后选择，可多选"
           />
         </n-form-item>
-        <n-form-item label="已有食材">
-          <n-dynamic-tags
-            v-model:value="form.availableIngredients"
-            :input-props="{ placeholder: '输入已有食材后回车' }"
-          />
+        <n-form-item>
+          <IngredientTagInput v-model="form.availableIngredients" label="已有食材" placeholder="输入已有食材后回车" />
         </n-form-item>
         <n-button block type="primary" :loading="saving" @click="createList">创建</n-button>
       </div>
@@ -279,6 +318,17 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.detail-head > div {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+}
+
+.detail-head span {
+  color: var(--sz-muted);
+  font-weight: 800;
 }
 
 .create-button {
@@ -348,14 +398,14 @@ h1 {
 
 .items label {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto auto 1fr auto auto;
   gap: 10px;
   align-items: center;
   min-height: 48px;
   padding: 0 12px;
 }
 
-.items label.checked span,
+.items label.checked .item-name,
 .items label.checked em {
   color: var(--sz-muted);
   text-decoration: line-through;
@@ -378,6 +428,18 @@ h1 {
 @media (max-width: 880px) {
   .shopping-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .items label {
+    grid-template-columns: auto auto 1fr;
+  }
+
+  .items small,
+  .items em {
+    grid-column: 3;
+    justify-self: start;
   }
 }
 </style>

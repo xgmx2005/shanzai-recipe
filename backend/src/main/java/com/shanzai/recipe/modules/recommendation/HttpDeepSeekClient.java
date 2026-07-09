@@ -6,9 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,20 +27,28 @@ public class HttpDeepSeekClient implements DeepSeekClient {
         ObjectMapper objectMapper,
         @Value("${app.deepseek.base-url:https://api.deepseek.com}") String baseUrl,
         @Value("${app.deepseek.api-key:}") String apiKey,
-        @Value("${app.deepseek.model:deepseek-v4-flash}") String model
+        @Value("${app.deepseek.model:deepseek-v4-flash}") String model,
+        @Value("${app.deepseek.connect-timeout:2s}") Duration connectTimeout,
+        @Value("${app.deepseek.read-timeout:8s}") Duration readTimeout
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.restClient = restClientBuilder
+            .baseUrl(baseUrl)
+            .requestFactory(requestFactory(connectTimeout, readTimeout))
+            .build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model;
     }
 
+    private SimpleClientHttpRequestFactory requestFactory(Duration connectTimeout, Duration readTimeout) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeout);
+        factory.setReadTimeout(readTimeout);
+        return factory;
+    }
+
     @Override
-    public Optional<AiRecommendationText> generateRecommendationText(
-        String recipeName,
-        String dietGoal,
-        List<String> matchedIngredients
-    ) {
+    public Optional<AiRecommendationText> generateRecommendationText(AiRecommendationContext context) {
         if (apiKey.isBlank()) {
             return Optional.empty();
         }
@@ -52,7 +62,7 @@ public class HttpDeepSeekClient implements DeepSeekClient {
                     model,
                     List.of(
                         new DeepSeekMessage("system", systemPrompt()),
-                        new DeepSeekMessage("user", userPrompt(recipeName, dietGoal, matchedIngredients))
+                        new DeepSeekMessage("user", userPrompt(context))
                     ),
                     Map.of("type", "json_object"),
                     0.4
@@ -75,32 +85,56 @@ public class HttpDeepSeekClient implements DeepSeekClient {
             return Optional.empty();
         }
         AiRecommendationText text = objectMapper.readValue(content, AiRecommendationText.class);
-        if (text.reason() == null || text.reason().isBlank()) {
+        if (isBlank(text.summary())
+            || isBlank(text.healthTip())
+            || isBlank(text.shoppingTip())
+            || isBlank(text.topRecipeReason())) {
             return Optional.empty();
         }
         return Optional.of(text);
     }
 
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     private String systemPrompt() {
         return """
-            你是膳哉的健康菜谱推荐助手。必须只返回 JSON，不要输出 Markdown 或额外说明。
-            JSON 字段必须是 reason、healthTip、shoppingTip。
+            你是膳哉的知识库增强菜谱推荐助手。
+            菜谱、营养、图片和购物清单食材已经由系统数据库确定。
+            你只能解释推荐结果，不能编造新菜谱、图片、热量或购物清单食材。
+            必须只返回 JSON，不要输出 Markdown 或额外说明。
+            JSON 字段必须是 summary、healthTip、shoppingTip、topRecipeReason。
             """;
     }
 
-    private String userPrompt(String recipeName, String dietGoal, List<String> matchedIngredients) {
-        String ingredients = matchedIngredients == null || matchedIngredients.isEmpty()
-            ? "暂无明确匹配食材"
-            : String.join("、", matchedIngredients);
+    private String userPrompt(AiRecommendationContext context) throws JsonProcessingException {
+        String recipesJson = objectMapper.writeValueAsString(context.recipes());
+        String available = context.availableIngredients() == null || context.availableIngredients().isEmpty()
+            ? "未填写"
+            : String.join("、", context.availableIngredients());
+        String excluded = context.excludedIngredients() == null || context.excludedIngredients().isEmpty()
+            ? "无"
+            : String.join("、", context.excludedIngredients());
         return """
-            请为以下菜谱生成中文推荐文案：
-            菜谱名称：%s
+            请基于以下系统已经评分完成的真实菜谱推荐结果，生成中文推荐分析。
+            不要新增菜谱，不要新增购物食材，不要修改热量和蛋白质数据。
+
             饮食目标：%s
-            已匹配食材：%s
+            已有食材：%s
+            排除食材：%s
+            烹饪时间：%s 分钟内
+            推荐菜谱快照 JSON：%s
 
             输出 JSON 示例：
-            {"reason":"推荐理由","healthTip":"健康提示","shoppingTip":"购物清单提示"}
-            """.formatted(recipeName, dietGoal, ingredients);
+            {"summary":"本次推荐总结","healthTip":"健康提示","shoppingTip":"购物清单提示","topRecipeReason":"第一道菜的个性化推荐理由"}
+            """.formatted(
+                context.dietGoal(),
+                available,
+                excluded,
+                context.cookingTime(),
+                recipesJson
+            );
     }
 
     private record DeepSeekChatRequest(

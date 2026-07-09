@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 public class RecommendationService {
@@ -84,14 +85,25 @@ public class RecommendationService {
             .limit(MAX_RECOMMENDATIONS)
             .toList();
 
-        List<RecommendedRecipeResponse> recommendedRecipes = scoredRecipes.stream()
-            .map(scoredRecipe -> toResponse(scoredRecipe, requestModel))
+        AiRecommendationAnalysis analysis = aiRecommendationService.generateAnalysis(toAiContext(requestModel, scoredRecipes));
+        List<RecommendedRecipeResponse> recommendedRecipes = IntStream.range(0, scoredRecipes.size())
+            .mapToObj(index -> toResponse(
+                scoredRecipes.get(index),
+                requestModel,
+                index == 0 ? analysis.topRecipeReason() : null
+            ))
             .toList();
-        String aiSummary = aiRecommendationService.generateSummary(requestModel.dietGoal(), recommendedRecipes);
-        RecommendationHistoryEntity history = saveHistory(userId, request, requestModel, recommendedRecipes, aiSummary);
+        RecommendationHistoryEntity history = saveHistory(userId, request, requestModel, recommendedRecipes, analysis);
         saveLogs(userId, requestModel, scoredRecipes);
 
-        return new RecommendationResponse(history.getId(), aiSummary, recommendedRecipes);
+        return new RecommendationResponse(
+            history.getId(),
+            analysis.summary(),
+            analysis.healthTip(),
+            analysis.shoppingTip(),
+            analysis.generated(),
+            recommendedRecipes
+        );
     }
 
     private ScoredRecipe scoreRecipe(
@@ -134,16 +146,22 @@ public class RecommendationService {
         );
     }
 
-    private RecommendedRecipeResponse toResponse(ScoredRecipe scoredRecipe, RecommendationRequestModel requestModel) {
+    private RecommendedRecipeResponse toResponse(
+        ScoredRecipe scoredRecipe,
+        RecommendationRequestModel requestModel,
+        String topAiReason
+    ) {
         List<String> matchedIngredients = matchedIngredients(
             scoredRecipe.candidate().ingredients(),
             requestModel.availableIngredients()
         );
-        String reason = aiRecommendationService.generateReason(
-            scoredRecipe.recipe().getName(),
-            requestModel.dietGoal(),
-            matchedIngredients
-        );
+        String reason = topAiReason == null || topAiReason.isBlank()
+            ? aiRecommendationService.generateLocalReason(
+                scoredRecipe.recipe().getName(),
+                requestModel.dietGoal(),
+                matchedIngredients
+            )
+            : topAiReason;
         return new RecommendedRecipeResponse(
             scoredRecipe.recipe().getId(),
             scoredRecipe.recipe().getName(),
@@ -155,12 +173,37 @@ public class RecommendationService {
         );
     }
 
+    private AiRecommendationContext toAiContext(
+        RecommendationRequestModel requestModel,
+        List<ScoredRecipe> scoredRecipes
+    ) {
+        return new AiRecommendationContext(
+            requestModel.dietGoal(),
+            requestModel.availableIngredients(),
+            requestModel.excludedIngredients(),
+            requestModel.cookingTime(),
+            scoredRecipes.stream()
+                .map(scoredRecipe -> new AiRecommendationContext.RecipeSnapshot(
+                    scoredRecipe.recipe().getName(),
+                    scoredRecipe.score().totalScore(),
+                    scoredRecipe.recipe().getCalories(),
+                    decimalText(scoredRecipe.recipe().getProtein()),
+                    matchedIngredients(
+                        scoredRecipe.candidate().ingredients(),
+                        requestModel.availableIngredients()
+                    ),
+                    scoredRecipe.candidate().tags()
+                ))
+                .toList()
+        );
+    }
+
     private RecommendationHistoryEntity saveHistory(
         Long userId,
         RecommendationRequest request,
         RecommendationRequestModel requestModel,
         List<RecommendedRecipeResponse> recipes,
-        String aiSummary
+        AiRecommendationAnalysis analysis
     ) {
         RecommendationHistoryEntity history = new RecommendationHistoryEntity();
         history.setUserId(userId);
@@ -172,7 +215,10 @@ public class RecommendationService {
         history.setResultRecipeIds(recipes.stream()
             .map(recipe -> String.valueOf(recipe.id()))
             .collect(Collectors.joining(",")));
-        history.setAiSummary(aiSummary);
+        history.setAiSummary(analysis.summary());
+        history.setAiHealthTip(analysis.healthTip());
+        history.setAiShoppingTip(analysis.shoppingTip());
+        history.setAiGenerated(analysis.generated());
         historyMapper.insert(history);
         return history;
     }
@@ -278,6 +324,13 @@ public class RecommendationService {
 
     private String joinList(List<String> values) {
         return String.join(",", cleanList(values));
+    }
+
+    private String decimalText(BigDecimal value) {
+        if (value == null) {
+            return "";
+        }
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private String defaultDietGoal(ProfileEntity profile) {

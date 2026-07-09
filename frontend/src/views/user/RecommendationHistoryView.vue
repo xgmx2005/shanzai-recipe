@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router'
 import { ArrowRight, CalendarClock, ChefHat, Clock, Flame, ListChecks, Salad, Sparkles, UsersRound } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { createShoppingList } from '@/api/shopping'
-import { backendAssetUrl } from '@/api/http'
+import IngredientIcon from '@/components/IngredientIcon.vue'
 import { getRecommendationHistory, listRecommendationHistory } from '@/api/recommendation'
 import type { RecommendationHistoryDetail, RecommendationHistorySummary } from '@/types'
+import { replaceImageWithFallback, resolveRecipeImage } from '@/utils/assets'
 
 const message = useMessage()
 const router = useRouter()
@@ -91,46 +92,38 @@ async function makeShoppingList() {
   }
 }
 
-function recipeImage(seed: number, imageUrl?: string) {
-  const fallback = [
-    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
-  ]
-  return backendAssetUrl(imageUrl) || fallback[Math.abs(seed) % fallback.length]
-}
-
 onMounted(load)
 </script>
 
 <template>
   <div class="history-view">
-    <section class="history-hero">
-      <div class="hero-copy">
+    <section class="page-heading">
+      <div>
         <p class="sz-chip"><Clock :size="15" /> 推荐历史</p>
-        <h1>把每一次推荐，沉淀成下一餐计划</h1>
-        <p>回看输入食材、推荐目标和命中的菜谱，从历史记录里快速生成购物清单。</p>
+        <h1>回看每一次推荐，快速复用成下一餐</h1>
       </div>
-      <div class="hero-stats">
-        <article>
-          <span class="stat-icon"><CalendarClock :size="20" /></span>
-          <small>历史记录</small>
-          <strong>{{ histories.length }}</strong>
-          <em>次推荐</em>
-        </article>
-        <article>
-          <span class="stat-icon is-warm"><ChefHat :size="20" /></span>
-          <small>累计菜谱</small>
-          <strong>{{ totalRecipeCount }}</strong>
-          <em>道命中</em>
-        </article>
-        <article>
-          <span class="stat-icon is-red"><Sparkles :size="20" /></span>
-          <small>最近一次</small>
-          <strong>{{ latestTimeLabel }}</strong>
-          <em>已保存</em>
-        </article>
-      </div>
+      <p>历史记录保留输入食材、目标和命中菜谱，可直接生成购物清单。</p>
+    </section>
+
+    <section class="stats-strip">
+      <article>
+        <span class="stat-icon"><CalendarClock :size="19" /></span>
+        <small>历史记录</small>
+        <strong>{{ histories.length }}</strong>
+        <em>次推荐</em>
+      </article>
+      <article>
+        <span class="stat-icon is-warm"><ChefHat :size="19" /></span>
+        <small>累计菜谱</small>
+        <strong>{{ totalRecipeCount }}</strong>
+        <em>道命中</em>
+      </article>
+      <article>
+        <span class="stat-icon is-red"><Sparkles :size="19" /></span>
+        <small>最近一次</small>
+        <strong>{{ latestTimeLabel }}</strong>
+        <em>已保存</em>
+      </article>
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
@@ -195,24 +188,53 @@ onMounted(load)
               </div>
 
               <article class="ai-summary">
-                <p class="sz-chip"><Sparkles :size="15" /> AI 摘要</p>
+                <p class="sz-chip">
+                  <Sparkles :size="15" />
+                  {{ detail.aiGenerated ? 'AI 推荐分析' : '规则推荐分析' }}
+                </p>
                 <strong>{{ detail.aiSummary }}</strong>
+                <div class="ai-summary-grid">
+                  <section>
+                    <span>健康提示</span>
+                    <p>{{ detail.aiHealthTip }}</p>
+                  </section>
+                  <section>
+                    <span>购物清单提示</span>
+                    <p>{{ detail.aiShoppingTip }}</p>
+                  </section>
+                </div>
               </article>
 
               <div class="input-row">
                 <article>
                   <span>已有食材</span>
-                  <strong>{{ detail.inputIngredients.join('、') || '无' }}</strong>
+                  <div class="ingredient-tags">
+                    <span v-for="name in detail.inputIngredients" :key="`in-${name}`">
+                      <IngredientIcon :name="name" :size="26" />
+                      {{ name }}
+                    </span>
+                    <strong v-if="detail.inputIngredients.length === 0">无</strong>
+                  </div>
                 </article>
                 <article>
                   <span>排除食材</span>
-                  <strong>{{ detail.excludedIngredients.join('、') || '无' }}</strong>
+                  <div class="ingredient-tags">
+                    <span v-for="name in detail.excludedIngredients" :key="`out-${name}`">
+                      <IngredientIcon :name="name" :size="26" />
+                      {{ name }}
+                    </span>
+                    <strong v-if="detail.excludedIngredients.length === 0">无</strong>
+                  </div>
                 </article>
               </div>
 
               <div class="recipe-list">
                 <article v-for="recipe in detail.recipes" :key="recipe.id">
-                  <img :src="recipeImage(recipe.id, recipe.imageUrl)" :alt="recipe.name" />
+                  <img
+                    :src="resolveRecipeImage(recipe.imageUrl)"
+                    :alt="recipe.name"
+                    @error="replaceImageWithFallback($event)"
+                  />
                   <div class="recipe-copy">
                     <strong>{{ recipe.name }}</strong>
                     <span><Flame :size="15" /> {{ recipe.calories }} kcal · {{ recipe.protein }}g 蛋白质</span>
@@ -233,7 +255,6 @@ onMounted(load)
 
 <style scoped>
 .history-view,
-.history-hero,
 .history-list,
 .detail-panel,
 .recipe-list {
@@ -244,84 +265,56 @@ onMounted(load)
   gap: 22px;
 }
 
-.history-hero {
-  position: relative;
-  overflow: hidden;
-  grid-template-columns: minmax(0, 1fr) 430px;
-  gap: 38px;
-  align-items: center;
-  min-height: 260px;
-  padding: 42px 52px;
-  border: 1px solid rgba(184, 220, 199, 0.82);
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at 8% 58%, rgba(72, 168, 106, 0.16) 0 88px, transparent 90px),
-    linear-gradient(105deg, #dceee4 0%, #edf6e9 55%, #f8f1e7 100%);
-  box-shadow: var(--sz-shadow-soft);
-}
-
-.history-hero::after {
-  content: "";
-  position: absolute;
-  right: 34px;
-  bottom: 24px;
-  width: 126px;
-  height: 126px;
-  border: 1px solid rgba(35, 107, 75, 0.12);
-  border-radius: 48% 52% 44% 56%;
-  background: rgba(255, 250, 241, 0.24);
-  transform: rotate(-8deg);
-}
-
-.hero-copy,
-.hero-stats {
-  position: relative;
-  z-index: 1;
-}
-
-.hero-copy {
-  display: grid;
-  justify-items: start;
-  gap: 18px;
-}
-
 h1,
 h2,
 p {
   margin: 0;
 }
 
+.page-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.page-heading > div {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
 h1 {
-  max-width: 720px;
   color: var(--sz-evergreen);
-  font-size: 50px;
-  line-height: 1.08;
+  font-size: 32px;
+  line-height: 1.2;
   letter-spacing: 0;
 }
 
-.hero-copy > p:not(.sz-chip) {
-  max-width: 650px;
+.page-heading > p {
+  max-width: 410px;
   color: var(--sz-muted);
-  font-size: 17px;
-  line-height: 1.9;
+  line-height: 1.8;
+  text-align: right;
 }
 
-.hero-stats {
+.stats-strip {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
-.hero-stats article {
+.stats-strip article {
   display: grid;
   grid-template-columns: 48px 1fr auto;
   column-gap: 14px;
   align-items: center;
-  min-height: 86px;
+  min-height: 92px;
   padding: 16px;
-  border: 1px solid rgba(255, 250, 241, 0.72);
+  border: 1px solid var(--sz-line);
   border-radius: 18px;
-  background: rgba(255, 250, 241, 0.78);
-  box-shadow: 0 12px 24px rgba(23, 37, 31, 0.06);
+  background: linear-gradient(135deg, rgba(255, 250, 241, 0.96), rgba(250, 244, 234, 0.9));
+  box-shadow: var(--sz-shadow-soft);
 }
 
 .stat-icon {
@@ -345,17 +338,17 @@ h1 {
   background: var(--sz-tomato-soft);
 }
 
-.hero-stats small {
+.stats-strip small {
   color: var(--sz-muted);
   font-weight: 800;
 }
 
-.hero-stats strong {
+.stats-strip strong {
   color: var(--sz-evergreen);
   font-size: 24px;
 }
 
-.hero-stats em {
+.stats-strip em {
   grid-column: 3;
   grid-row: 1 / span 2;
   padding: 5px 10px;
@@ -554,6 +547,33 @@ h1 {
   line-height: 1.75;
 }
 
+.ai-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.ai-summary-grid section {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(223, 210, 191, 0.72);
+  border-radius: 12px;
+  background: rgba(255, 253, 247, 0.72);
+}
+
+.ai-summary-grid span {
+  color: var(--sz-evergreen);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-summary-grid p {
+  color: var(--sz-text);
+  line-height: 1.7;
+}
+
 .input-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -583,6 +603,25 @@ h1 {
   color: var(--sz-evergreen);
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+.ingredient-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ingredient-tags span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .recipe-list {
@@ -637,43 +676,36 @@ h1 {
 }
 
 @media (max-width: 900px) {
-  .history-hero,
   .history-grid,
+  .stats-strip,
   .detail-metrics,
+  .ai-summary-grid,
   .input-row,
   .recipe-list {
     grid-template-columns: 1fr;
   }
 
-  .history-hero {
-    padding: 32px;
+  .page-heading {
+    display: grid;
   }
 
-  h1 {
-    font-size: 40px;
+  .page-heading > p {
+    max-width: none;
+    text-align: left;
   }
 }
 
 @media (max-width: 640px) {
-  .history-hero {
-    padding: 26px 20px;
-    border-radius: 24px;
-  }
-
-  h1 {
-    font-size: 32px;
-  }
-
   .detail-head,
   .panel-heading {
     display: grid;
   }
 
-  .hero-stats article {
+  .stats-strip article {
     grid-template-columns: 44px 1fr;
   }
 
-  .hero-stats em {
+  .stats-strip em {
     grid-column: 2;
     grid-row: auto;
     justify-self: start;

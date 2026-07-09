@@ -1,30 +1,53 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Heart, ListPlus, Timer, Utensils } from '@lucide/vue'
+import { ArrowLeft, Heart, ListPlus, Tags, Timer, Utensils } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
-import { backendAssetUrl } from '@/api/http'
 import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
 import { getRecipe } from '@/api/recipe'
 import { createShoppingList } from '@/api/shopping'
-import type { RecipeDetail } from '@/types'
+import IngredientIcon from '@/components/IngredientIcon.vue'
+import IngredientTagInput from '@/components/IngredientTagInput.vue'
+import type { DietGoal, Difficulty, RecipeDetail } from '@/types'
+import { replaceImageWithFallback, resolveRecipeImage, resolveRecipeImagePosition } from '@/utils/assets'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const loading = ref(true)
-const actionLoading = ref(false)
+const favoriteLoading = ref(false)
+const shoppingLoading = ref(false)
+const shoppingModalOpen = ref(false)
+const availableIngredients = ref<string[]>([])
 const error = ref('')
 const recipe = ref<RecipeDetail | null>(null)
 const favoriteRecipeIds = ref<number[]>([])
-const fallbackImage =
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80'
 
 const recipeId = computed(() => Number(route.params.id))
 const isFavorite = computed(() => favoriteRecipeIds.value.includes(recipeId.value))
-const heroImageUrl = computed(() => backendAssetUrl(recipe.value?.imageUrl) || fallbackImage)
+const fromRecommendation = computed(() => route.query.from === 'recommendation')
+const heroImageUrl = computed(() => resolveRecipeImage(recipe.value?.imageUrl))
+const heroImagePosition = computed(() => resolveRecipeImagePosition(recipe.value?.imageUrl))
 const mainIngredients = computed(() => recipe.value?.ingredients.filter((item) => item.core) ?? [])
 const otherIngredients = computed(() => recipe.value?.ingredients.filter((item) => !item.core) ?? [])
+const difficultyLabels: Record<Difficulty, string> = {
+  EASY: '简单',
+  MEDIUM: '适中',
+  HARD: '复杂',
+}
+const goalLabels: Record<DietGoal, string> = {
+  FAT_LOSS: '减脂控热量',
+  BALANCED: '日常健康',
+  MUSCLE_GAIN: '健身增肌',
+}
+const recipeTags = computed(() => {
+  if (!recipe.value) return []
+  return [
+    ...recipe.value.healthTags,
+    ...recipe.value.tasteTags,
+    ...recipe.value.targetGoals.map((goal) => goalLabels[goal]),
+  ]
+})
 
 async function syncFavorites() {
   const favorites = await listFavorites()
@@ -51,8 +74,8 @@ async function load() {
 }
 
 async function toggleFavorite() {
-  if (!recipe.value || actionLoading.value) return
-  actionLoading.value = true
+  if (!recipe.value || favoriteLoading.value) return
+  favoriteLoading.value = true
   try {
     if (isFavorite.value) {
       await unfavoriteRecipe(recipe.value.id)
@@ -65,24 +88,45 @@ async function toggleFavorite() {
   } catch (err) {
     message.error(err instanceof Error ? err.message : '收藏操作失败')
   } finally {
-    actionLoading.value = false
+    favoriteLoading.value = false
   }
 }
 
+function openShoppingModal() {
+  shoppingModalOpen.value = true
+}
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+  void router.push(fromRecommendation.value ? '/user/recommend' : '/user/home')
+}
+
 async function makeShoppingList() {
-  if (!recipe.value || actionLoading.value) return
-  actionLoading.value = true
+  if (!recipe.value || shoppingLoading.value) return
+  shoppingLoading.value = true
   try {
-    await createShoppingList({
+    const list = await createShoppingList({
       recipeIds: [recipe.value.id],
-      availableIngredients: [],
+      availableIngredients: availableIngredients.value,
       title: `${recipe.value.name}采购清单`,
     })
+    shoppingModalOpen.value = false
+    availableIngredients.value = []
     message.success('购物清单已生成')
+    await router.push({
+      path: '/user/shopping-lists',
+      query: {
+        listId: String(list.id),
+        from: fromRecommendation.value ? 'recommendation-detail' : 'recipe-detail',
+      },
+    })
   } catch (err) {
     message.error(err instanceof Error ? err.message : '生成购物清单失败')
   } finally {
-    actionLoading.value = false
+    shoppingLoading.value = false
   }
 }
 
@@ -91,9 +135,9 @@ onMounted(load)
 
 <template>
   <div class="recipe-detail-view">
-    <button type="button" class="back-button" @click="router.back()">
+    <button type="button" class="back-button" @click="goBack">
       <ArrowLeft />
-      返回
+      {{ fromRecommendation ? '返回推荐结果' : '返回' }}
     </button>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
@@ -102,21 +146,29 @@ onMounted(load)
     <template v-if="recipe">
       <section class="detail-hero sz-panel">
         <div class="hero-copy">
-          <p class="sz-chip"><Utensils /> {{ recipe.difficulty }}</p>
+          <p class="sz-chip"><Utensils /> {{ difficultyLabels[recipe.difficulty] }}</p>
           <h1>{{ recipe.name }}</h1>
           <p>{{ recipe.description }}</p>
+          <div v-if="recipeTags.length" class="hero-tags">
+            <span v-for="tag in recipeTags.slice(0, 5)" :key="tag">{{ tag }}</span>
+          </div>
           <div class="hero-actions">
-            <n-button type="primary" :loading="actionLoading" @click="makeShoppingList">
+            <n-button type="primary" :loading="shoppingLoading" @click="openShoppingModal">
               <template #icon><n-icon><ListPlus /></n-icon></template>
               生成购物清单
             </n-button>
-            <n-button secondary type="primary" :loading="actionLoading" @click="toggleFavorite">
+            <n-button secondary type="primary" :loading="favoriteLoading" @click="toggleFavorite">
               <template #icon><n-icon><Heart /></n-icon></template>
               {{ isFavorite ? '取消收藏' : '收藏菜谱' }}
             </n-button>
           </div>
         </div>
-        <img :src="heroImageUrl" :alt="recipe.name" @error="($event.target as HTMLImageElement).src = fallbackImage" />
+        <img
+          :src="heroImageUrl"
+          :alt="recipe.name"
+          :style="{ objectPosition: heroImagePosition }"
+          @error="replaceImageWithFallback($event)"
+        />
       </section>
 
       <section class="nutrition-grid">
@@ -155,30 +207,68 @@ onMounted(load)
           </div>
           <div v-if="mainIngredients.length" class="ingredient-group">
             <h3>核心食材</h3>
-            <p v-for="item in mainIngredients" :key="item.ingredientId">
-              <strong>{{ item.name }}</strong>
+            <article v-for="item in mainIngredients" :key="item.ingredientId">
+              <div class="ingredient-copy">
+                <IngredientIcon :name="item.name" :size="42" />
+                <strong>{{ item.name }}</strong>
+              </div>
               <span>{{ item.quantity }}{{ item.unit }}</span>
-            </p>
+            </article>
           </div>
           <div v-if="otherIngredients.length" class="ingredient-group">
             <h3>辅助食材</h3>
-            <p v-for="item in otherIngredients" :key="item.ingredientId">
-              <strong>{{ item.name }}</strong>
+            <article v-for="item in otherIngredients" :key="item.ingredientId">
+              <div class="ingredient-copy">
+                <IngredientIcon :name="item.name" :size="38" />
+                <strong>{{ item.name }}</strong>
+              </div>
               <span>{{ item.quantity }}{{ item.unit }}</span>
-            </p>
+            </article>
           </div>
+          <button type="button" class="panel-action" @click="openShoppingModal">
+            <ListPlus :size="17" />
+            按这道菜生成采购清单
+          </button>
         </article>
 
-        <article class="sz-panel steps-panel">
-          <h2 class="sz-section-title">做法步骤</h2>
-          <ol>
-            <li v-for="(step, index) in recipe.steps" :key="`${index}-${step}`">
-              <span>{{ index + 1 }}</span>
-              <p>{{ step }}</p>
-            </li>
-          </ol>
-        </article>
+        <div class="detail-column">
+          <article class="sz-panel steps-panel">
+            <h2 class="sz-section-title">做法步骤</h2>
+            <ol>
+              <li v-for="(step, index) in recipe.steps" :key="`${index}-${step}`">
+                <span>{{ index + 1 }}</span>
+                <p>{{ step }}</p>
+              </li>
+            </ol>
+          </article>
+
+          <section class="meta-panel sz-panel">
+            <div>
+              <p class="sz-chip"><Tags :size="15" /> 菜谱标签</p>
+              <h2>适合场景</h2>
+            </div>
+            <div class="tag-list">
+              <span v-for="tag in recipeTags" :key="tag">{{ tag }}</span>
+            </div>
+          </section>
+        </div>
       </section>
+
+      <n-modal
+        v-model:show="shoppingModalOpen"
+        preset="card"
+        title="生成购物清单"
+        class="shopping-modal"
+        :style="{ width: '420px', maxWidth: 'calc(100vw - 32px)' }"
+      >
+        <div class="shopping-form">
+          <p>填写你已经有的食材，系统生成清单时会自动排除。</p>
+          <IngredientTagInput v-model="availableIngredients" label="已有食材" placeholder="例如 鸡蛋" />
+          <n-button block type="primary" :loading="shoppingLoading" @click="makeShoppingList">
+            确认生成
+          </n-button>
+        </div>
+      </n-modal>
     </template>
   </div>
 </template>
@@ -252,6 +342,23 @@ h1 {
   gap: 10px;
 }
 
+.hero-tags,
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hero-tags span,
+.tag-list span {
+  padding: 5px 10px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .detail-hero img {
   width: 100%;
   min-height: 300px;
@@ -306,8 +413,15 @@ h1 {
   align-items: start;
 }
 
+.detail-column {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
 .ingredient-panel,
-.steps-panel {
+.steps-panel,
+.meta-panel {
   display: grid;
   gap: 16px;
   padding: 20px;
@@ -330,7 +444,7 @@ h1 {
   font-size: 14px;
 }
 
-.ingredient-group p {
+.ingredient-group article {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -340,9 +454,38 @@ h1 {
   background: var(--sz-mint);
 }
 
+.ingredient-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ingredient-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ingredient-group span {
   color: var(--sz-deep-green);
   font-weight: 800;
+}
+
+.panel-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  box-shadow: 0 10px 18px rgba(35, 107, 75, 0.18);
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .steps-panel ol {
@@ -377,9 +520,40 @@ h1 {
   line-height: 1.75;
 }
 
+.meta-panel {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.meta-panel > div:first-child {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.meta-panel h2 {
+  color: var(--sz-evergreen);
+  font-size: 22px;
+}
+
+.shopping-modal {
+  max-width: 520px;
+}
+
+.shopping-form {
+  display: grid;
+  gap: 16px;
+}
+
+.shopping-form p {
+  color: var(--sz-muted);
+  line-height: 1.7;
+}
+
 @media (max-width: 980px) {
   .detail-hero,
-  .content-grid {
+  .content-grid,
+  .meta-panel {
     grid-template-columns: 1fr;
   }
 

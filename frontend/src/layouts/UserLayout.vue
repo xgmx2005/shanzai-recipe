@@ -119,6 +119,7 @@ nav a {
   padding: 0 2px;
   color: var(--sz-muted);
   font-weight: 700;
+  white-space: nowrap;
   transition:
     color 0.18s ease;
 }
@@ -221,7 +222,7 @@ nav a.router-link-active::after {
   max-width: none;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1180px) {
   .topbar {
     grid-template-columns: 1fr auto;
     padding: 12px 18px;
@@ -229,6 +230,10 @@ nav a.router-link-active::after {
 
   .page-content {
     width: min(100% - 24px, 1180px);
+  }
+
+  .page-content.is-home-page {
+    width: min(100% - 24px, 1800px);
   }
 
   .brand {
@@ -248,6 +253,12 @@ nav a.router-link-active::after {
     justify-content: flex-start;
     overflow-x: auto;
     padding-bottom: 2px;
+  }
+}
+
+@media (max-width: 920px) {
+  .user-shell {
+    --user-page-inline: 18px;
   }
 }
 

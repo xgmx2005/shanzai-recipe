@@ -130,6 +130,9 @@ export interface RecommendedRecipe {
 export interface RecommendationResponse {
   historyId: number
   aiSummary: string
+  aiHealthTip: string
+  aiShoppingTip: string
+  aiGenerated: boolean
   recipes: RecommendedRecipe[]
 }
 
@@ -142,6 +145,9 @@ export interface RecommendationHistorySummary {
   servings: number
   resultRecipeIds: number[]
   aiSummary: string
+  aiHealthTip: string
+  aiShoppingTip: string
+  aiGenerated: boolean
   createdAt: string
 }
 

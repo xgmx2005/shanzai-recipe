@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Heart, Timer, Utensils } from '@lucide/vue'
-import { backendAssetUrl } from '@/api/http'
 import type { RecipeCardModel } from '@/types'
+import { replaceImageWithFallback, resolveRecipeImage, resolveRecipeImagePosition } from '@/utils/assets'
 
 const props = defineProps<{
   recipe: RecipeCardModel
@@ -16,14 +16,8 @@ const emit = defineEmits<{
   favorite: [id: number, nextFavorite: boolean]
 }>()
 
-const fallbackImage =
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80'
-
-const imageUrl = computed(
-  () =>
-    backendAssetUrl(props.recipe.imageUrl) ||
-    fallbackImage,
-)
+const imageUrl = computed(() => resolveRecipeImage(props.recipe.imageUrl))
+const imagePosition = computed(() => resolveRecipeImagePosition(props.recipe.imageUrl))
 
 const tags = computed(() => props.recipe.tags ?? [])
 const scoreText = computed(() => (props.recipe.score ? `${props.recipe.score} 匹配` : '膳食推荐'))
@@ -33,7 +27,12 @@ const favoriteLabel = computed(() => (props.isFavorite ? '取消收藏' : '收�
 <template>
   <article class="recipe-card" :class="{ dense }">
     <div class="image-wrap">
-      <img :src="imageUrl" :alt="recipe.name" @error="($event.target as HTMLImageElement).src = fallbackImage" />
+      <img
+        :src="imageUrl"
+        :alt="recipe.name"
+        :style="{ objectPosition: imagePosition }"
+        @error="replaceImageWithFallback($event)"
+      />
       <span>{{ scoreText }}</span>
     </div>
     <div class="recipe-body">

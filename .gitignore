@@ -8,6 +8,7 @@ backend/.mvn/wrapper/maven-wrapper.jar
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/.playwright-cli/
 frontend/*.tsbuildinfo
 
 .env

@@ -5,6 +5,9 @@ import java.util.List;
 public record RecommendationResponse(
     Long historyId,
     String aiSummary,
+    String aiHealthTip,
+    String aiShoppingTip,
+    boolean aiGenerated,
     List<RecommendedRecipeResponse> recipes
 ) {
 }

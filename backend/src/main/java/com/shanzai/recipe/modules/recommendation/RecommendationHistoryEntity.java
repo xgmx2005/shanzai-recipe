@@ -18,6 +18,9 @@ public class RecommendationHistoryEntity {
     private Integer servings;
     private String resultRecipeIds;
     private String aiSummary;
+    private String aiHealthTip;
+    private String aiShoppingTip;
+    private Boolean aiGenerated;
     private LocalDateTime createdAt;
 
     public Long getId() {
@@ -90,6 +93,30 @@ public class RecommendationHistoryEntity {
 
     public void setAiSummary(String aiSummary) {
         this.aiSummary = aiSummary;
+    }
+
+    public String getAiHealthTip() {
+        return aiHealthTip;
+    }
+
+    public void setAiHealthTip(String aiHealthTip) {
+        this.aiHealthTip = aiHealthTip;
+    }
+
+    public String getAiShoppingTip() {
+        return aiShoppingTip;
+    }
+
+    public void setAiShoppingTip(String aiShoppingTip) {
+        this.aiShoppingTip = aiShoppingTip;
+    }
+
+    public Boolean getAiGenerated() {
+        return aiGenerated;
+    }
+
+    public void setAiGenerated(Boolean aiGenerated) {
+        this.aiGenerated = aiGenerated;
     }
 
     public LocalDateTime getCreatedAt() {

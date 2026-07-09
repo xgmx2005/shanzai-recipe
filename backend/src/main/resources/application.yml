@@ -25,3 +25,5 @@ app:
     base-url: https://api.deepseek.com
     api-key: ${DEEPSEEK_API_KEY:}
     model: deepseek-v4-flash
+    connect-timeout: 2s
+    read-timeout: 8s

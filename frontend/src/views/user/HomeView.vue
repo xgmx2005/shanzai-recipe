@@ -4,12 +4,12 @@ import { useRouter } from 'vue-router'
 import { ArrowRight, ClipboardList, Flame, Heart, Leaf, Sparkles, Target, Timer } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
-import { backendAssetUrl } from '@/api/http'
 import { getProfileSummary } from '@/api/profile'
 import { listRecipes } from '@/api/recipe'
 import { listRecommendationHistory } from '@/api/recommendation'
 import { useAuthStore } from '@/stores/auth'
 import type { ProfileSummary, RecipeCardModel, RecipeSummary } from '@/types'
+import { replaceImageWithFallback, resolveRecipeImage, resolveRecipeImagePosition } from '@/utils/assets'
 
 const router = useRouter()
 const message = useMessage()
@@ -21,12 +21,6 @@ const recipes = ref<RecipeCardModel[]>([])
 const recommendationCount = ref(0)
 const favoriteRecipeIds = ref<number[]>([])
 const favoritePendingRecipeIds = ref<number[]>([])
-const fallbackImages = [
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
-]
 
 const goalLabel = computed(() => {
   const labels = {
@@ -91,12 +85,12 @@ function recipeNameOf(id: number) {
   return recipes.value.find((recipe) => recipe.id === id)?.name ?? '这道菜'
 }
 
-function fallbackImageOf(seed = 0) {
-  return fallbackImages[Math.abs(seed) % fallbackImages.length]
+function cardImage(recipe?: RecipeCardModel) {
+  return resolveRecipeImage(recipe?.imageUrl)
 }
 
-function cardImage(recipe?: RecipeCardModel) {
-  return backendAssetUrl(recipe?.imageUrl) || fallbackImageOf(recipe?.id)
+function cardImagePosition(recipe?: RecipeCardModel) {
+  return resolveRecipeImagePosition(recipe?.imageUrl)
 }
 
 function matchScore(index: number) {
@@ -195,6 +189,7 @@ onMounted(async () => {
   <div class="home-view">
     <section class="hero">
       <div class="hero-copy">
+        <p class="hero-eyebrow">膳哉智能轻饮食助手</p>
         <h1>今天想吃得更合适一点</h1>
         <p>
           根据你的健康档案、已有食材和烹饪时间，先匹配营养目标，再给出清楚的推荐理由。
@@ -206,13 +201,24 @@ onMounted(async () => {
             </template>
             开始推荐
           </n-button>
+          <n-button class="secondary-action" secondary size="large" @click="router.push('/user/profile')">
+            完善档案
+          </n-button>
         </div>
       </div>
       <div v-if="heroRecipe" class="featured-recipe">
-        <img :src="cardImage(heroRecipe)" :alt="heroRecipe.name" @error="($event.target as HTMLImageElement).src = fallbackImageOf(heroRecipe.id)" />
+        <img
+          :src="cardImage(heroRecipe)"
+          :alt="heroRecipe.name"
+          :style="{ objectPosition: cardImagePosition(heroRecipe) }"
+          @error="replaceImageWithFallback($event)"
+        />
         <div class="featured-copy">
+          <div class="featured-head">
+            <span>今日推荐</span>
+            <small>{{ goalLabel }}</small>
+          </div>
           <h2>{{ heroRecipe.name }}</h2>
-          <span>今日推荐</span>
           <ul>
             <li v-for="tag in featuredTags" :key="tag"><Flame /> {{ tag }}</li>
           </ul>
@@ -301,7 +307,12 @@ onMounted(async () => {
           @click="openRecipeDetail(recipe.id)"
         >
           <div class="home-recipe-image">
-            <img :src="cardImage(recipe)" :alt="recipe.name" @error="($event.target as HTMLImageElement).src = fallbackImageOf(recipe.id)" />
+            <img
+              :src="cardImage(recipe)"
+              :alt="recipe.name"
+              :style="{ objectPosition: cardImagePosition(recipe) }"
+              @error="replaceImageWithFallback($event)"
+            />
             <span>匹配度 {{ matchScore(recipes.indexOf(recipe)) }}%</span>
             <button
               type="button"
@@ -335,15 +346,16 @@ onMounted(async () => {
 .home-view {
   display: grid;
   gap: 22px;
+  min-width: 0;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(600px, 600px);
-  gap: clamp(48px, 4.25vw, 68px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
+  gap: clamp(22px, 3.2vw, 54px);
   align-items: center;
-  height: 314px;
-  padding: 28px clamp(48px, 10.2vw, 164px);
+  min-height: 314px;
+  padding: 28px clamp(24px, 5vw, 92px);
   border: 1px solid rgba(201, 221, 205, 0.92);
   border-radius: 24px;
   background:
@@ -355,7 +367,8 @@ onMounted(async () => {
 .hero-copy {
   display: grid;
   justify-items: start;
-  gap: 18px;
+  gap: 14px;
+  min-width: 0;
 }
 
 h1 {
@@ -373,6 +386,13 @@ h1 {
   color: var(--sz-text);
   font-size: 16px;
   line-height: 1.8;
+}
+
+.hero-eyebrow {
+  color: var(--sz-green-dark);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
 }
 
 .hero-actions {
@@ -394,13 +414,25 @@ h1 {
   box-shadow: 0 10px 20px rgba(35, 107, 75, 0.22);
 }
 
+.secondary-action {
+  --n-text-color: var(--sz-deep-green) !important;
+  --n-text-color-hover: var(--sz-evergreen) !important;
+  --n-border: 1px solid rgba(35, 107, 75, 0.16) !important;
+  --n-border-hover: 1px solid rgba(35, 107, 75, 0.28) !important;
+  --n-border-radius: 10px !important;
+  min-width: 132px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
 .featured-recipe {
   display: grid;
-  grid-template-columns: minmax(280px, 1.08fr) minmax(250px, 0.92fr);
+  grid-template-columns: minmax(0, 1fr) minmax(228px, 0.82fr);
   justify-self: end;
   width: 100%;
-  height: 260px;
+  max-width: 600px;
+  height: 272px;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 18px;
@@ -417,16 +449,30 @@ h1 {
 
 .featured-copy {
   display: grid;
-  align-content: center;
+  align-content: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 18px 22px;
+}
+
+.featured-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  padding: 18px 28px;
+}
+
+.featured-head small {
+  color: var(--sz-muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .featured-copy h2 {
   margin: 0;
   color: var(--sz-ink);
-  font-size: 22px;
-  line-height: 1.35;
+  font-size: 21px;
+  line-height: 1.32;
 }
 
 .featured-copy > span {
@@ -441,7 +487,7 @@ h1 {
 
 .featured-copy ul {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -469,8 +515,8 @@ h1 {
 
 .featured-meta {
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 8px 12px;
+  margin-top: 2px;
   color: var(--sz-muted);
   font-size: 13px;
 }
@@ -480,6 +526,8 @@ h1 {
 }
 
 .featured-meta button {
+  flex-basis: 100%;
+  width: fit-content;
   min-height: 34px;
   padding: 0 16px;
   border: 0;
@@ -627,7 +675,6 @@ h1 {
   box-shadow: var(--sz-shadow-soft);
   cursor: pointer;
   text-align: left;
-  cursor: pointer;
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease,
@@ -819,9 +866,23 @@ h1 {
 }
 
 @media (max-width: 980px) {
-  .hero,
   .summary-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 26px;
+  }
+
+  .featured-recipe {
+    justify-self: stretch;
+    max-width: none;
+    height: 260px;
+  }
+
+  .featured-copy {
+    align-content: center;
   }
 
   .recipe-grid {
@@ -838,7 +899,6 @@ h1 {
   }
 
   .hero {
-    height: auto;
     padding: 22px;
   }
 
@@ -848,6 +908,11 @@ h1 {
 
   .featured-recipe {
     grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .featured-recipe img {
+    height: 190px;
   }
 }
 </style>

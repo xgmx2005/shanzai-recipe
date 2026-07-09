@@ -15,6 +15,8 @@ import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,6 +94,9 @@ class RecommendationServiceTest {
         assertEquals(1L, response.recipes().get(0).id());
         assertTrue(response.recipes().get(0).score() >= 80);
         assertTrue(response.aiSummary().contains("推荐"));
+        assertTrue(response.aiHealthTip().contains("建议") || response.aiHealthTip().contains("搭配"));
+        assertTrue(response.aiShoppingTip().contains("购物") || response.aiShoppingTip().contains("清单"));
+        assertEquals(false, response.aiGenerated());
 
         ArgumentCaptor<RecommendationHistoryEntity> historyCaptor =
             ArgumentCaptor.forClass(RecommendationHistoryEntity.class);
@@ -100,7 +105,76 @@ class RecommendationServiceTest {
         verify(logMapper).insert(logCaptor.capture());
         assertEquals(7L, historyCaptor.getValue().getUserId());
         assertEquals("1", historyCaptor.getValue().getResultRecipeIds());
+        assertTrue(historyCaptor.getValue().getAiHealthTip().contains("建议")
+            || historyCaptor.getValue().getAiHealthTip().contains("搭配"));
+        assertTrue(historyCaptor.getValue().getAiShoppingTip().contains("购物")
+            || historyCaptor.getValue().getAiShoppingTip().contains("清单"));
+        assertEquals(false, historyCaptor.getValue().getAiGenerated());
         assertEquals(1L, logCaptor.getValue().getRecipeId());
+    }
+
+    @Test
+    void recommendCallsAiOnlyOnceForRecommendationAnalysis() {
+        AtomicInteger aiCallCount = new AtomicInteger();
+        recommendationService = new RecommendationService(
+            recipeMapper,
+            recipeIngredientMapper,
+            ingredientMapper,
+            profileMapper,
+            historyMapper,
+            logMapper,
+            new RecommendationScoringService(),
+            new AiRecommendationService(context -> {
+                aiCallCount.incrementAndGet();
+                return Optional.of(new AiRecommendationText(
+                    "AI总结",
+                    "AI健康提示",
+                    "AI购物提示",
+                    "AI推荐：" + context.recipes().get(0).name()
+                ));
+            })
+        );
+        when(recipeMapper.selectList(any())).thenReturn(List.of(
+            recipe(1L, "鸡胸肉西兰花轻食碗", "FAT_LOSS", "清淡", "低脂,高蛋白", 1),
+            recipe(3L, "西兰花鸡蛋碗", "FAT_LOSS", "清淡", "低脂,高蛋白", 1)
+        ));
+        when(recipeIngredientMapper.selectList(any())).thenReturn(List.of(
+            recipeIngredient(1L, 1L, true),
+            recipeIngredient(1L, 9L, true),
+            recipeIngredient(3L, 9L, true),
+            recipeIngredient(3L, 12L, true)
+        ));
+        when(ingredientMapper.selectBatchIds(List.of(1L, 9L, 12L))).thenReturn(List.of(
+            ingredient(1L, "鸡胸肉"),
+            ingredient(9L, "西兰花"),
+            ingredient(12L, "鸡蛋")
+        ));
+        when(profileMapper.selectOne(any())).thenReturn(profile());
+        when(historyMapper.insert(any(RecommendationHistoryEntity.class))).thenAnswer(invocation -> {
+            RecommendationHistoryEntity history = invocation.getArgument(0);
+            history.setId(6L);
+            return 1;
+        });
+
+        RecommendationResponse response = recommendationService.recommend(
+            7L,
+            new RecommendationRequest(
+                List.of("鸡胸肉", "西兰花", "鸡蛋"),
+                List.of(),
+                DietGoal.FAT_LOSS,
+                30,
+                1
+            )
+        );
+
+        assertEquals(2, response.recipes().size());
+        assertEquals("AI推荐：鸡胸肉西兰花轻食碗", response.recipes().get(0).reason());
+        assertTrue(response.recipes().get(1).reason().contains("西兰花鸡蛋碗"));
+        assertEquals("AI总结", response.aiSummary());
+        assertEquals("AI健康提示", response.aiHealthTip());
+        assertEquals("AI购物提示", response.aiShoppingTip());
+        assertEquals(true, response.aiGenerated());
+        assertEquals(1, aiCallCount.get());
     }
 
     private RecipeEntity recipe(

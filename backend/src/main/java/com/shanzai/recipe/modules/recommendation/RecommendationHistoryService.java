@@ -55,6 +55,9 @@ public class RecommendationHistoryService {
             history.getServings(),
             recipeIds,
             history.getAiSummary(),
+            history.getAiHealthTip(),
+            history.getAiShoppingTip(),
+            Boolean.TRUE.equals(history.getAiGenerated()),
             recipes,
             history.getCreatedAt()
         );
@@ -70,6 +73,9 @@ public class RecommendationHistoryService {
             history.getServings(),
             splitIds(history.getResultRecipeIds()),
             history.getAiSummary(),
+            history.getAiHealthTip(),
+            history.getAiShoppingTip(),
+            Boolean.TRUE.equals(history.getAiGenerated()),
             history.getCreatedAt()
         );
     }

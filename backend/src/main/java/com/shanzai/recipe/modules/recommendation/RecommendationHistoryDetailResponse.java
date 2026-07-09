@@ -12,6 +12,9 @@ public record RecommendationHistoryDetailResponse(
     Integer servings,
     List<Long> resultRecipeIds,
     String aiSummary,
+    String aiHealthTip,
+    String aiShoppingTip,
+    boolean aiGenerated,
     List<RecommendationHistoryRecipeResponse> recipes,
     LocalDateTime createdAt
 ) {

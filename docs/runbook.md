@@ -24,6 +24,12 @@ backend/src/main/resources/db/data.sql
 
 也可以先把两个 SQL 文件复制到纯英文路径后再执行 `SOURCE`。
 
+如果数据库之前已经创建过，只需要给推荐历史表补充 AI 分析字段，可在 IDEA Database 控制台运行：
+
+```text
+backend/src/main/resources/db/migrations/2026-07-09-add-recommendation-ai-analysis.sql
+```
+
 ## 2. 后端
 
 设置环境变量：
@@ -31,6 +37,8 @@ backend/src/main/resources/db/data.sql
 ```powershell
 $env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
 ```
+
+DeepSeek 只用于生成推荐分析文案，不生成菜谱实体、图片、热量或购物清单食材。推荐结果、菜谱图片和购物清单都来自数据库；如果未配置 `DEEPSEEK_API_KEY` 或调用失败，后端会自动返回规则兜底分析，接口仍可正常演示。
 
 启动：
 

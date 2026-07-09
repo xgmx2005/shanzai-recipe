@@ -291,7 +291,10 @@ Authorization: Bearer <token>
 ```json
 {
   "historyId": 5,
-  "aiSummary": "根据你的减脂目标，优先推荐低脂高蛋白菜谱。",
+  "aiSummary": "本次优先推荐鸡胸肉西兰花轻食碗，结合鸡胸肉、西兰花，更适合减脂控热量场景。",
+  "aiHealthTip": "建议控制额外油脂摄入，保留高蛋白食材，并搭配蔬菜增强饱腹感。",
+  "aiShoppingTip": "生成购物清单时会自动排除你已有的鸡胸肉、西兰花，只补充菜谱中缺少的食材。",
+  "aiGenerated": true,
   "recipes": [
     {
       "id": 1,
@@ -322,7 +325,10 @@ Authorization: Bearer <token>
     "cookingTime": 30,
     "servings": 1,
     "resultRecipeIds": [1, 3, 6],
-    "aiSummary": "根据你的减脂目标推荐轻食。",
+    "aiSummary": "本次优先推荐鸡胸肉西兰花轻食碗，结合鸡胸肉、西兰花，更适合减脂控热量场景。",
+    "aiHealthTip": "建议控制额外油脂摄入，保留高蛋白食材，并搭配蔬菜增强饱腹感。",
+    "aiShoppingTip": "生成购物清单时会自动排除你已有的鸡胸肉、西兰花，只补充菜谱中缺少的食材。",
+    "aiGenerated": true,
     "createdAt": "2026-07-07T22:54:50"
   }
 ]
@@ -343,7 +349,10 @@ Authorization: Bearer <token>
   "cookingTime": 30,
   "servings": 1,
   "resultRecipeIds": [1, 3, 6],
-  "aiSummary": "根据你的减脂目标推荐轻食。",
+  "aiSummary": "本次优先推荐鸡胸肉西兰花轻食碗，结合鸡胸肉、西兰花，更适合减脂控热量场景。",
+  "aiHealthTip": "建议控制额外油脂摄入，保留高蛋白食材，并搭配蔬菜增强饱腹感。",
+  "aiShoppingTip": "生成购物清单时会自动排除你已有的鸡胸肉、西兰花，只补充菜谱中缺少的食材。",
+  "aiGenerated": true,
   "recipes": [
     {
       "id": 1,

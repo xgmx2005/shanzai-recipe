@@ -1,8 +1,9 @@
 package com.shanzai.recipe.modules.recommendation;
 
 public record AiRecommendationText(
-    String reason,
+    String summary,
     String healthTip,
-    String shoppingTip
+    String shoppingTip,
+    String topRecipeReason
 ) {
 }
