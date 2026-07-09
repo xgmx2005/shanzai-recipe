@@ -79,6 +79,29 @@ class RecipeKnowledgeBaseSeedDataTest {
         );
     }
 
+    @Test
+    void expandedRecipesUseDedicatedVisualAssets() throws IOException {
+        SeedData seedData = parseSeedData();
+        Map<Long, String> expectedImages = Map.ofEntries(
+            Map.entry(22L, "/images/recipes/chicken-pumpkin-salad.jpg"),
+            Map.entry(25L, "/images/recipes/purple-sweet-potato-yogurt-bowl.jpg"),
+            Map.entry(26L, "/images/recipes/cucumber-shrimp-egg-cup.jpg"),
+            Map.entry(30L, "/images/recipes/tomato-beef-soba-noodle.jpg"),
+            Map.entry(31L, "/images/recipes/pumpkin-egg-grain-porridge.jpg"),
+            Map.entry(33L, "/images/recipes/pork-cabbage-fried-rice.jpg"),
+            Map.entry(37L, "/images/recipes/cumin-beef-sweet-potato-bowl.jpg"),
+            Map.entry(39L, "/images/recipes/shrimp-avocado-soba-noodle.jpg"),
+            Map.entry(41L, "/images/recipes/beef-edamame-quinoa-bowl.jpg"),
+            Map.entry(43L, "/images/recipes/basa-sweet-potato-training-plate.jpg")
+        );
+
+        for (Map.Entry<Long, String> expected : expectedImages.entrySet()) {
+            RecipeSeed recipe = seedData.recipes().get(expected.getKey());
+            assertTrue(recipe.imageUrl().equals(expected.getValue()),
+                recipe.name() + " should use dedicated image " + expected.getValue());
+        }
+    }
+
     private int countGoal(SeedData seedData, String goal) {
         return (int) seedData.recipes().values().stream()
             .filter(recipe -> recipe.targetGoals().contains(goal))
