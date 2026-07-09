@@ -30,3 +30,13 @@
 | `tuna-corn-sandwich.jpg` | 金枪鱼玉米全麦三明治 | 相近菜式 | [Tuna sandwich](https://commons.wikimedia.org/wiki/File:Tuna_sandwich.jpg) |
 | `shrimp-egg-pasta.jpg` | 虾仁鸡蛋炒意面 | 贴合 | [Shrimp pasta](https://commons.wikimedia.org/wiki/File:Shrimp_pasta.jpg) |
 
+## Knowledge Base Expansion Phase 1
+
+Recipes 19-45 reuse existing local images by dish type where a visually close photo already exists. Distinct missing photos use `/images/recipes/default-recipe.svg` until a matching real photo is collected.
+
+- Soup recipes reuse `shrimp-tofu-soup.jpg` or `egg-tofu-custard.jpg`.
+- Bowl and rice recipes reuse existing bowl/rice photos.
+- Fish recipes reuse `cod-asparagus.jpg`.
+- Wrap recipes reuse `chicken-avocado-wrap.jpg`.
+- `紫薯酸奶轻食碗` currently uses `default-recipe.svg`.
+
