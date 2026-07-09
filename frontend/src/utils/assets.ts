@@ -32,6 +32,18 @@ const recipeImagePositionMap: Record<string, string> = {
   '/images/recipes/shrimp-avocado-soba-noodle.jpg': 'center 50%',
   '/images/recipes/beef-edamame-quinoa-bowl.jpg': 'center 50%',
   '/images/recipes/basa-sweet-potato-training-plate.jpg': 'center 50%',
+  '/images/recipes/pexels-chicken-broccoli-bowl.jpg': 'center 50%',
+  '/images/recipes/pexels-tuna-egg-salad-bowl.jpg': 'center 47%',
+  '/images/recipes/pexels-salmon-poke-bowl.jpg': 'center 50%',
+  '/images/recipes/pexels-bulgogi-beef-rice-bowl.jpg': 'center 50%',
+  '/images/recipes/pexels-tofu-broccoli-bowl.jpg': 'center 48%',
+  '/images/recipes/pexels-chicken-salad-bowl.jpg': 'center 54%',
+  '/images/recipes/pexels-bibimbap-beef-rice-bowl.jpg': 'center 48%',
+  '/images/recipes/pexels-chicken-kale-bowl.jpg': 'center 50%',
+  '/images/recipes/pexels-buddha-sweet-potato-bowl.jpg': 'center 50%',
+  '/images/recipes/pexels-shrimp-avocado-salad.jpg': 'center 50%',
+  '/images/recipes/pexels-quinoa-chicken-bowl.jpg': 'center 50%',
+  '/images/recipes/pexels-shrimp-poke-bowl.jpg': 'center 50%',
 }
 
 const ingredientIconMap: Record<string, string> = {

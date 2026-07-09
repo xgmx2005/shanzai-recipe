@@ -83,15 +83,15 @@ class RecipeKnowledgeBaseSeedDataTest {
     void expandedRecipesUseDedicatedVisualAssets() throws IOException {
         SeedData seedData = parseSeedData();
         Map<Long, String> expectedImages = Map.ofEntries(
-            Map.entry(22L, "/images/recipes/chicken-pumpkin-salad.jpg"),
+            Map.entry(22L, "/images/recipes/pexels-chicken-salad-bowl.jpg"),
             Map.entry(25L, "/images/recipes/purple-sweet-potato-yogurt-bowl.jpg"),
             Map.entry(26L, "/images/recipes/cucumber-shrimp-egg-cup.jpg"),
             Map.entry(30L, "/images/recipes/tomato-beef-soba-noodle.jpg"),
             Map.entry(31L, "/images/recipes/pumpkin-egg-grain-porridge.jpg"),
             Map.entry(33L, "/images/recipes/pork-cabbage-fried-rice.jpg"),
-            Map.entry(37L, "/images/recipes/cumin-beef-sweet-potato-bowl.jpg"),
-            Map.entry(39L, "/images/recipes/shrimp-avocado-soba-noodle.jpg"),
-            Map.entry(41L, "/images/recipes/beef-edamame-quinoa-bowl.jpg"),
+            Map.entry(37L, "/images/recipes/pexels-buddha-sweet-potato-bowl.jpg"),
+            Map.entry(39L, "/images/recipes/pexels-shrimp-avocado-salad.jpg"),
+            Map.entry(41L, "/images/recipes/pexels-quinoa-chicken-bowl.jpg"),
             Map.entry(43L, "/images/recipes/basa-sweet-potato-training-plate.jpg")
         );
 
@@ -99,6 +99,31 @@ class RecipeKnowledgeBaseSeedDataTest {
             RecipeSeed recipe = seedData.recipes().get(expected.getKey());
             assertTrue(recipe.imageUrl().equals(expected.getValue()),
                 recipe.name() + " should use dedicated image " + expected.getValue());
+        }
+    }
+
+    @Test
+    void highVisibilityRecipesUsePremiumPexelsLightMealImages() throws IOException {
+        SeedData seedData = parseSeedData();
+        Map<Long, String> expectedImages = Map.ofEntries(
+            Map.entry(1L, "/images/recipes/pexels-chicken-broccoli-bowl.jpg"),
+            Map.entry(4L, "/images/recipes/pexels-tuna-egg-salad-bowl.jpg"),
+            Map.entry(10L, "/images/recipes/pexels-salmon-poke-bowl.jpg"),
+            Map.entry(13L, "/images/recipes/pexels-bulgogi-beef-rice-bowl.jpg"),
+            Map.entry(16L, "/images/recipes/pexels-tofu-broccoli-bowl.jpg"),
+            Map.entry(22L, "/images/recipes/pexels-chicken-salad-bowl.jpg"),
+            Map.entry(28L, "/images/recipes/pexels-bibimbap-beef-rice-bowl.jpg"),
+            Map.entry(35L, "/images/recipes/pexels-chicken-kale-bowl.jpg"),
+            Map.entry(37L, "/images/recipes/pexels-buddha-sweet-potato-bowl.jpg"),
+            Map.entry(39L, "/images/recipes/pexels-shrimp-avocado-salad.jpg"),
+            Map.entry(41L, "/images/recipes/pexels-quinoa-chicken-bowl.jpg"),
+            Map.entry(45L, "/images/recipes/pexels-shrimp-poke-bowl.jpg")
+        );
+
+        for (Map.Entry<Long, String> expected : expectedImages.entrySet()) {
+            RecipeSeed recipe = seedData.recipes().get(expected.getKey());
+            assertTrue(recipe.imageUrl().equals(expected.getValue()),
+                recipe.name() + " should use premium Pexels image " + expected.getValue());
         }
     }
 
