@@ -40,3 +40,22 @@ Recipes 19-45 reuse existing local images by dish type where a visually close ph
 - Wrap recipes reuse `chicken-avocado-wrap.jpg`.
 - `紫薯酸奶轻食碗` currently uses `default-recipe.svg`.
 
+## Knowledge Base Expansion Phase 2
+
+Recipes below were refreshed with closer Wikimedia Commons photos. Some are still visually similar substitutes rather than exact same dishes, but they reduce repeated images and keep every local asset traceable.
+
+| 本地文件 | 菜谱名 | 说明 | 来源页 |
+| --- | --- | --- | --- |
+| `chicken-pumpkin-salad.jpg` | 鸡腿肉南瓜沙拉 | 相近菜式，鸡肉与南瓜元素贴合 | [Lunch dish (pumpkin sauce, potatoes and chicken steak)](https://commons.wikimedia.org/wiki/File:Lunch_dish_(pumpkin_sauce,_potatoes_and_chicken_steak).jpg) |
+| `purple-sweet-potato-yogurt-bowl.jpg` | 紫薯酸奶轻食碗 | 相近菜式，红薯与酸奶元素贴合 | [Sweet potatoes and za'atar chickpeas with herby yogurt](https://commons.wikimedia.org/wiki/File:Sweet_potatoes_and_za%27atar_chickpeas_with_herby_yogurt_(49803694683).jpg) |
+| `cucumber-shrimp-egg-cup.jpg` | 黄瓜虾仁鸡蛋杯 | 相近菜式，虾仁、黄瓜、牛油果元素贴合 | [Ceviche de Aguachile](https://commons.wikimedia.org/wiki/File:Ceviche_de_Aguachile-_Sinaloa_spicy_shrimp,_cucumber,_red_onion,_avocado.jpg) |
+| `tomato-beef-soba-noodle.jpg` | 番茄牛肉荞麦面 | 相近菜式，牛肉荞麦面贴合 | [Beef filet on soba noodles](https://commons.wikimedia.org/wiki/File:Beef_filet_on_soba_noodles,_with_soy_sauce,_salt,_and_black_pepper_-_Arlington,_MA.jpg) |
+| `pumpkin-egg-grain-porridge.jpg` | 南瓜鸡蛋杂粮粥 | 贴合南瓜粥视觉 | [Korean pumpkin porridge-Hobakjuk](https://commons.wikimedia.org/wiki/File:Korean_pumpkin_porridge-Hobakjuk-01.jpg) |
+| `pork-cabbage-fried-rice.jpg` | 白菜猪里脊炒饭 | 相近菜式，猪肉白菜配米饭 | [Pork and cabbage stir fry with brown rice](https://commons.wikimedia.org/wiki/File:Pork_and_cabbage_stir_fry_with_daikon_miso_soup_and_brown_rice_%E5%9B%9E%E9%8D%8B%E8%82%89%E3%82%82%E3%81%A9%E3%81%8D%E3%81%A8%E5%A4%A7%E6%A0%B9%E3%81%AE%E5%91%B3%E5%99%8C%E6%B1%81%E3%80%81%E7%8E%84%E7%B1%B3.jpg) |
+| `cumin-beef-sweet-potato-bowl.jpg` | 孜然牛肉红薯碗 | 相近菜式，牛肉与红薯元素贴合 | [A Beef steak with sweet potato fries and mushroom with tomato](https://commons.wikimedia.org/wiki/File:A_Beef_steak_with_sweet_potato_fries_and_mushroom_with_tomato.jpg) |
+| `shrimp-avocado-soba-noodle.jpg` | 虾仁牛油果荞麦面 | 相近菜式，虾仁牛油果贴合 | [Shrimp and Avocado Salad](https://commons.wikimedia.org/wiki/File:Shrimp_and_Avocado_Salad_(13329194373).jpg) |
+| `beef-edamame-quinoa-bowl.jpg` | 牛肉毛豆藜麦饭 | 相近菜式，牛肉藜麦碗贴合 | [Quinoa bowl with beef and lamb](https://commons.wikimedia.org/wiki/File:Our_favorite_quinoa_bowl_with_beef_and_lamb_plus_a_spicy_chicken_wrap!_SO_GOOD!_-TasteVERTS_(29322059930).jpg) |
+| `basa-sweet-potato-training-plate.jpg` | 巴沙鱼红薯训练餐 | 相近菜式，鱼肉与红薯训练餐贴合 | [Tilapia with roasted zucchini and sweet potato](https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Tilapia_with_roasted_zucchini_and_sweet_potato.jpg) |
+
+Phase 2 image licenses are recorded from Wikimedia Commons pages and include CC0, CC BY, and CC BY-SA variants. When presenting the project publicly, retain this source list or replace individual photos with self-owned images.
+
