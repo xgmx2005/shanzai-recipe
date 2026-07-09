@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecipeKnowledgeBaseSeedDataTest {
     private static final Path DATA_SQL = Path.of("src/main/resources/db/data.sql");
+    private static final Path EXPANSION_MIGRATION_SQL =
+        Path.of("src/main/resources/db/migrations/2026-07-09-expand-recipe-knowledge-base.sql");
     private static final Path FRONTEND_PUBLIC = Path.of("../frontend/public");
 
     @Test
@@ -64,6 +66,17 @@ class RecipeKnowledgeBaseSeedDataTest {
                 assertTrue(Files.exists(asset), "missing image asset " + asset);
             }
         }
+    }
+
+    @Test
+    void expansionMigrationRecipeColumnsMatchSeedData() throws IOException {
+        String seedDataSql = Files.readString(DATA_SQL);
+        String migrationSql = Files.readString(EXPANSION_MIGRATION_SQL);
+
+        assertTrue(
+            insertColumns(seedDataSql, "recipe").equals(insertColumns(migrationSql, "recipe")),
+            "recipe migration insert columns should match data.sql"
+        );
     }
 
     private int countGoal(SeedData seedData, String goal) {
@@ -127,6 +140,13 @@ class RecipeKnowledgeBaseSeedDataTest {
         Matcher matcher = pattern.matcher(sql);
         assertTrue(matcher.find(), "missing INSERT block for " + table);
         return matcher.group(1);
+    }
+
+    private List<String> insertColumns(String sql, String table) {
+        Pattern pattern = Pattern.compile("INSERT(?: IGNORE)? INTO " + table + " \\((.*?)\\) VALUES", Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(sql);
+        assertTrue(matcher.find(), "missing INSERT columns for " + table);
+        return List.of(matcher.group(1).replaceAll("\\s+", "").split(","));
     }
 
     private List<String> splitRows(String values) {

@@ -30,7 +30,7 @@ INSERT IGNORE INTO ingredient (id, name, category, unit, calories_per_100g, prot
 DELETE FROM recipe_ingredient WHERE recipe_id BETWEEN 19 AND 45;
 DELETE FROM recipe WHERE id BETWEEN 19 AND 45;
 
-INSERT INTO recipe (id, name, description, image_url, cooking_time_minutes, difficulty, servings, calories, protein, fat, carbs, taste_tags, health_tags, target_goals, steps, is_active, popularity_score) VALUES
+INSERT INTO recipe (id, name, description, image_url, cooking_time, difficulty, servings, calories, protein, fat, carbs, taste_tags, health_tags, target_goals, steps, status, created_by) VALUES
 (19, '冬瓜虾仁汤', '冬瓜和虾仁煮成清淡汤品，热量低且适合晚餐。', '/images/recipes/shrimp-tofu-soup.jpg', 18, 'EASY', 1, 260, 24.00, 5.00, 24.00, '清淡,汤类', '低卡,高蛋白,少油', 'FAT_LOSS,BALANCED', '["冬瓜去皮切片，虾仁洗净。","锅中加水煮开后放入冬瓜。","冬瓜变软后加入虾仁煮至变色。","用盐、姜和葱调味后出锅。"]', 1, 2),
 (20, '菠菜鸡蛋豆腐汤', '菠菜、鸡蛋和豆腐搭配，清淡快手又有蛋白质。', '/images/recipes/egg-tofu-custard.jpg', 15, 'EASY', 1, 290, 23.00, 14.00, 16.00, '清淡,快手', '低卡,高蛋白,易做', 'FAT_LOSS,BALANCED', '["菠菜洗净切段，豆腐切块。","锅中加水煮开后放入豆腐。","加入菠菜煮软。","倒入蛋液形成蛋花并调味。"]', 1, 2),
 (21, '巴沙鱼西兰花轻食盘', '巴沙鱼和西兰花组成低脂轻食盘，适合控制热量。', '/images/recipes/cod-asparagus.jpg', 22, 'EASY', 1, 380, 34.00, 8.00, 38.00, '清淡,轻食', '低脂,高蛋白,低卡', 'FAT_LOSS', '["巴沙鱼用柠檬汁、盐和黑胡椒腌制。","西兰花焯水备用。","平底锅少油煎熟巴沙鱼。","搭配米饭和西兰花装盘。"]', 1, 2),
