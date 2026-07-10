@@ -11,6 +11,7 @@ import IngredientTagInput from '@/components/IngredientTagInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { RecommendForm, RecommendationResponse } from '@/types'
 import { replaceImageWithFallback, resolveRecipeImage, resolveRecipeImagePosition } from '@/utils/assets'
+import { shoppingListRoute } from '@/utils/navigation'
 
 const auth = useAuthStore()
 const message = useMessage()
@@ -90,13 +91,7 @@ async function makeShoppingList() {
       title: `智能推荐 #${result.value?.historyId} 采购清单`,
     })
     message.success('购物清单已生成')
-    await router.push({
-      path: '/user/shopping-lists',
-      query: {
-        listId: String(list.id),
-        from: 'recommendation',
-      },
-    })
+    await router.push(shoppingListRoute(list.id, 'recommendation'))
   } catch (err) {
     message.error(err instanceof Error ? err.message : '生成购物清单失败')
   } finally {

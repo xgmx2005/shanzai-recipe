@@ -8,6 +8,7 @@ import { createShoppingList } from '@/api/shopping'
 import IngredientTagInput from '@/components/IngredientTagInput.vue'
 import type { FavoriteRecipe } from '@/types'
 import { replaceImageWithFallback, resolveRecipeImage } from '@/utils/assets'
+import { shoppingListRoute } from '@/utils/navigation'
 
 const message = useMessage()
 const router = useRouter()
@@ -113,7 +114,7 @@ async function makeShoppingList() {
 
   creating.value = true
   try {
-    await createShoppingList({
+    const list = await createShoppingList({
       recipeIds: [...selectedRecipeIds.value],
       availableIngredients: availableIngredients.value,
       title: `收藏菜谱采购清单（${selectedCount.value}道）`,
@@ -122,7 +123,7 @@ async function makeShoppingList() {
     availableIngredients.value = []
     selectedRecipeIds.value = []
     message.success('购物清单已生成')
-    await router.push('/user/shopping-lists')
+    await router.push(shoppingListRoute(list.id, 'favorites'))
   } catch (err) {
     message.error(err instanceof Error ? err.message : '生成购物清单失败')
   } finally {
