@@ -73,6 +73,8 @@ class DictionaryConversationAnswerInterpreterTest {
         assertEquals(List.of("肉", "菜"), vague.unknownTerms());
         assertFalse(timeOnly.restrictionsAnswered());
         assertTrue(unrestricted.restrictionsAnswered());
+        assertTrue(unrestricted.excludedIngredients().isEmpty());
+        assertTrue(unrestricted.allergyIngredients().isEmpty());
         assertTrue(allergy.restrictionsAnswered());
         assertEquals(List.of("香菜"), allergy.excludedIngredients());
         assertEquals(List.of("花生"), allergy.allergyIngredients());
@@ -95,5 +97,34 @@ class DictionaryConversationAnswerInterpreterTest {
                 clarification.availableIngredients().stream().map(AvailableIngredientInput::name).toList());
         assertTrue(clarification.unknownTerms().isEmpty());
         assertTrue(blocked.merge(clarification).unknownTerms().isEmpty());
+    }
+
+    @Test
+    void capturesSpecificRestrictionWordsOutsideFoodAliasDictionary() {
+        ConversationAnswerAnalysis spicy = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "不吃辣", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis seafoodAllergy = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "海鲜过敏", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis lowSalt = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "低盐", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis bounded = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "不吃辣和海鲜，半小时内", RecommendationConversationContext.empty());
+
+        assertTrue(spicy.relevant());
+        assertTrue(spicy.restrictionsAnswered());
+        assertEquals(List.of("辣"), spicy.excludedIngredients());
+        assertTrue(spicy.availableIngredients().isEmpty());
+
+        assertTrue(seafoodAllergy.restrictionsAnswered());
+        assertEquals(List.of("海鲜"), seafoodAllergy.allergyIngredients());
+        assertTrue(seafoodAllergy.availableIngredients().isEmpty());
+
+        assertTrue(lowSalt.restrictionsAnswered());
+        assertTrue(lowSalt.excludedIngredients().isEmpty());
+        assertTrue(lowSalt.availableIngredients().isEmpty());
+
+        assertEquals(List.of("辣", "海鲜"), bounded.excludedIngredients());
+        assertEquals(30, bounded.cookingTime());
+        assertTrue(bounded.availableIngredients().isEmpty());
     }
 }

@@ -30,9 +30,14 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern NO_RESTRICTION = Pattern.compile(
-            "无忌口|没有忌口|无过敏|没有过敏|都可以吃|都能吃|不挑食|没有饮食禁忌"
+            "无忌口|没有忌口|无过敏|没有过敏|不过敏|都可以吃|都能吃|不挑食|没有饮食禁忌|没有禁忌"
     );
     private static final Pattern RESTRICTION_MARKER = Pattern.compile("不吃|忌口|忌|过敏|不能吃|不要吃");
+    private static final Pattern EXCLUSION_MARKER = Pattern.compile("不吃|忌口|忌|不能吃|不要吃");
+    private static final Pattern ALLERGY_SUFFIX = Pattern.compile("([^，、。；;！？!?]{1,8})(过敏|过敏原)");
+    private static final Pattern RESTRICTION_PREFERENCE = Pattern.compile(
+            "低盐|少盐|低糖|少糖|低脂|少油|不辣|清淡(?:饮食)?"
+    );
     private static final List<String> SEPARATORS = List.of("，", "、", "。", "；", ";", "和", "及", "以及");
     private static final Map<String, String> FOOD_ALIASES = aliases();
     private static final List<String> FOOD_TERMS = FOOD_ALIASES.keySet().stream()
@@ -71,6 +76,9 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         List<String> unknown = new ArrayList<>(findVagueTerms(text, occurrences));
         List<String> excluded = new ArrayList<>();
         List<String> allergies = new ArrayList<>();
+        RestrictionTerms specificRestrictions = findSpecificRestrictions(text);
+        addUniqueAll(excluded, specificRestrictions.excluded());
+        addUniqueAll(allergies, specificRestrictions.allergies());
         for (IngredientOccurrence occurrence : occurrences) {
             String clause = clauseAround(text, occurrence.start(), occurrence.end());
             if (!RESTRICTION_MARKER.matcher(clause).find()) {
@@ -84,6 +92,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         }
 
         boolean restrictionsAnswered = NO_RESTRICTION.matcher(text).find()
+                || specificRestrictions.preference()
                 || !excluded.isEmpty() || !allergies.isEmpty();
         Integer cookingTime = extractTime(text);
         Integer servings = extractServings(text);
@@ -290,6 +299,53 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         return null;
     }
 
+    private RestrictionTerms findSpecificRestrictions(String text) {
+        String searchable = NO_RESTRICTION.matcher(text).replaceAll(" ");
+        List<String> excluded = new ArrayList<>();
+        List<String> allergies = new ArrayList<>();
+        Matcher exclusion = EXCLUSION_MARKER.matcher(searchable);
+        while (exclusion.find()) {
+            int end = restrictionBoundary(searchable, exclusion.end());
+            String phrase = searchable.substring(exclusion.end(), end);
+            for (String term : phrase.split("和|及|以及|\\s+")) {
+                addRestrictionTerm(excluded, term);
+            }
+        }
+
+        Matcher allergy = ALLERGY_SUFFIX.matcher(searchable);
+        while (allergy.find()) {
+            addRestrictionTerm(allergies, allergy.group(1));
+        }
+        return new RestrictionTerms(
+                excluded,
+                allergies,
+                RESTRICTION_PREFERENCE.matcher(searchable).find()
+        );
+    }
+
+    private int restrictionBoundary(String text, int start) {
+        int end = text.length();
+        for (int index = start; index < text.length(); index++) {
+            char character = text.charAt(index);
+            if ("，、。；;！？!?".indexOf(character) >= 0) {
+                end = index;
+                break;
+            }
+        }
+        return Math.min(end, start + 8);
+    }
+
+    private void addRestrictionTerm(List<String> target, String value) {
+        String term = value == null ? "" : value.trim().replaceAll("\\s+", "");
+        term = term.replaceFirst("^(对|关于)", "");
+        term = term.replaceAll("(食物|食品|之类|等|吧|呀|呢)$", "");
+        if (term.isEmpty() || !hasAlphaNumericOrChinese(term)
+                || NO_RESTRICTION.matcher(term).find()) {
+            return;
+        }
+        addUnique(target, normalizeName(term));
+    }
+
     private boolean hasMeaningfulSignal(
             ConversationStage stage,
             String text,
@@ -482,5 +538,12 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     }
 
     private record Amount(BigDecimal quantity, String unit) {
+    }
+
+    private record RestrictionTerms(
+            List<String> excluded,
+            List<String> allergies,
+            boolean preference
+    ) {
     }
 }
