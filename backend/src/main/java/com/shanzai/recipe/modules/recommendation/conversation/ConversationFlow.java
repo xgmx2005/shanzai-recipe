@@ -24,10 +24,6 @@ public final class ConversationFlow {
         }
 
         RecommendationConversationContext mergedContext = currentContext.merge(analysis);
-        if (stage == ConversationStage.RESTRICTIONS) {
-            mergedContext = mergedContext.confirmRestrictions();
-        }
-
         ConversationStage nextStage = firstMissingStage(mergedContext);
         boolean needsClarification = !mergedContext.unknownTerms().isEmpty()
                 || !mergedContext.conflicts().isEmpty();

@@ -17,7 +17,7 @@ class ConversationFlowTest {
 
     @Test
     void advancesPastFieldsAlreadyAnsweredInOneMessage() {
-        ConversationAnswerAnalysis analysis = completeAnalysis(List.of(), List.of());
+        ConversationAnswerAnalysis analysis = completeAnalysis(true, List.of(), List.of());
 
         ConversationTransition transition = flow.apply(
                 ConversationStage.INTENT,
@@ -36,6 +36,8 @@ class ConversationFlowTest {
 
     @Test
     void invalidAnswersDoNotAdvanceAndEscalateGuidance() {
+        assertFalse(ConversationAnswerAnalysis.invalid().restrictionsAnswered());
+
         ConversationTransition first = flow.apply(
                 ConversationStage.INGREDIENTS,
                 ConversationStatus.ACTIVE,
@@ -107,6 +109,73 @@ class ConversationFlowTest {
     }
 
     @Test
+    void intentTextAloneCompletesIntentStage() {
+        ConversationTransition transition = flow.apply(
+                ConversationStage.INTENT,
+                ConversationStatus.ACTIVE,
+                RecommendationConversationContext.empty(),
+                0,
+                new ConversationAnswerAnalysis(
+                        true, "清淡饮食", null, List.of(), List.of(), List.of(),
+                        null, null, List.of(), List.of(), BigDecimal.ONE
+                )
+        );
+
+        assertEquals(ConversationStage.INGREDIENTS, transition.stage());
+    }
+
+    @Test
+    void relevantContextAnswerDoesNotConfirmRestrictionsWithoutExplicitSignal() {
+        RecommendationConversationContext context = contextBeforeRestrictions();
+        ConversationAnswerAnalysis analysis = new ConversationAnswerAnalysis(
+                true, null, null, List.of(), List.of(), List.of(),
+                30, null, List.of(), List.of(), BigDecimal.ONE, false
+        );
+
+        ConversationTransition transition = flow.apply(
+                ConversationStage.RESTRICTIONS,
+                ConversationStatus.ACTIVE,
+                context,
+                0,
+                analysis
+        );
+
+        assertEquals(ConversationStage.RESTRICTIONS, transition.stage());
+        assertFalse(transition.context().restrictionsConfirmed());
+        assertEquals(30, transition.context().cookingTime());
+    }
+
+    @Test
+    void completeAnalysisWithoutExplicitRestrictionsAnswerCannotConfirm() {
+        ConversationTransition transition = flow.apply(
+                ConversationStage.INTENT,
+                ConversationStatus.ACTIVE,
+                RecommendationConversationContext.empty(),
+                0,
+                completeAnalysis(false, List.of(), List.of())
+        );
+
+        assertEquals(ConversationStage.RESTRICTIONS, transition.stage());
+        assertEquals(ConversationStatus.ACTIVE, transition.status());
+        assertFalse(transition.context().restrictionsConfirmed());
+    }
+
+    @Test
+    void explicitRestrictionsAnswerAllowsConfirmation() {
+        ConversationTransition transition = flow.apply(
+                ConversationStage.INTENT,
+                ConversationStatus.ACTIVE,
+                RecommendationConversationContext.empty(),
+                0,
+                completeAnalysis(true, List.of(), List.of())
+        );
+
+        assertEquals(ConversationStage.CONFIRM, transition.stage());
+        assertEquals(ConversationStatus.READY_TO_CONFIRM, transition.status());
+        assertTrue(transition.context().restrictionsConfirmed());
+    }
+
+    @Test
     void invalidAnswerGuidanceSaturatesAfterThirdAttempt() {
         ConversationTransition transition = flow.apply(
                 ConversationStage.CONTEXT,
@@ -124,6 +193,7 @@ class ConversationFlowTest {
     @Test
     void unknownTermsAndConflictsPreventConfirmation() {
         ConversationAnswerAnalysis analysis = completeAnalysis(
+                true,
                 List.of("神秘食材"), List.of("鸡胸肉同时被列为忌口")
         );
 
@@ -145,7 +215,7 @@ class ConversationFlowTest {
     @Test
     void mergeDoesNotClearExistingValuesWithEmptyAnalysis() {
         RecommendationConversationContext existing = RecommendationConversationContext.empty()
-                .merge(completeAnalysis(List.of(), List.of()));
+                .merge(completeAnalysis(true, List.of(), List.of()));
         ConversationAnswerAnalysis emptyUpdate = new ConversationAnswerAnalysis(
                 true, null, null, List.of(), List.of(), List.of(),
                 null, null, List.of(), List.of(), BigDecimal.ONE
@@ -172,7 +242,16 @@ class ConversationFlowTest {
         assertEquals(ConversationStage.CONFIRM, flow.firstMissingStage(context));
     }
 
+    private static RecommendationConversationContext contextBeforeRestrictions() {
+        return new RecommendationConversationContext(
+                "清淡饮食", "FAT_LOSS",
+                List.of(new AvailableIngredientInput("鸡胸肉", new BigDecimal("300"), "g", true)),
+                List.of(), List.of(), null, null, List.of(), List.of(), false
+        );
+    }
+
     private static ConversationAnswerAnalysis completeAnalysis(
+            boolean restrictionsAnswered,
             List<String> unknownTerms,
             List<String> conflicts
     ) {
@@ -187,7 +266,8 @@ class ConversationFlowTest {
                 1,
                 unknownTerms,
                 conflicts,
-                new BigDecimal("0.96")
+                new BigDecimal("0.96"),
+                restrictionsAnswered
         );
     }
 }

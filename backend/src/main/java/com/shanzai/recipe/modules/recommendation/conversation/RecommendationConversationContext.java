@@ -61,28 +61,8 @@ public record RecommendationConversationContext(
                 analysis.servings() == null ? servings : analysis.servings(),
                 mergeList(unknownTerms, analysis.unknownTerms()),
                 mergeList(conflicts, analysis.conflicts()),
-                restrictionsConfirmed || confirmsRestrictions(analysis)
+                restrictionsConfirmed || analysis.restrictionsAnswered()
         );
-    }
-
-    public RecommendationConversationContext confirmRestrictions() {
-        if (restrictionsConfirmed) {
-            return this;
-        }
-        return new RecommendationConversationContext(
-                intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
-                cookingTime, servings, unknownTerms, conflicts, true
-        );
-    }
-
-    private static boolean confirmsRestrictions(ConversationAnswerAnalysis analysis) {
-        if (!analysis.excludedIngredients().isEmpty() || !analysis.allergyIngredients().isEmpty()) {
-            return true;
-        }
-        return !analysis.availableIngredients().isEmpty()
-                && analysis.cookingTime() != null
-                && analysis.servings() != null
-                && hasText(analysis.intentText(), analysis.dietGoal());
     }
 
     private static String preferNewText(String previous, String next) {

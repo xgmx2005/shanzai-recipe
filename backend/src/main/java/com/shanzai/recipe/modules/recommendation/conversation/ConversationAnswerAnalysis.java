@@ -14,7 +14,8 @@ public record ConversationAnswerAnalysis(
         Integer servings,
         List<String> unknownTerms,
         List<String> conflicts,
-        BigDecimal confidence
+        BigDecimal confidence,
+        boolean restrictionsAnswered
 ) {
     public ConversationAnswerAnalysis {
         availableIngredients = immutableList(availableIngredients);
@@ -24,10 +25,45 @@ public record ConversationAnswerAnalysis(
         conflicts = immutableList(conflicts);
     }
 
+    public ConversationAnswerAnalysis(
+            boolean relevant,
+            String intentText,
+            String dietGoal,
+            List<AvailableIngredientInput> availableIngredients,
+            List<String> excludedIngredients,
+            List<String> allergyIngredients,
+            Integer cookingTime,
+            Integer servings,
+            List<String> unknownTerms,
+            List<String> conflicts,
+            BigDecimal confidence
+    ) {
+        this(relevant, intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
+                cookingTime, servings, unknownTerms, conflicts, confidence, false);
+    }
+
+    public ConversationAnswerAnalysis(
+            boolean relevant,
+            String intentText,
+            String dietGoal,
+            List<AvailableIngredientInput> availableIngredients,
+            List<String> excludedIngredients,
+            List<String> allergyIngredients,
+            Integer cookingTime,
+            Integer servings,
+            List<String> unknownTerms,
+            List<String> conflicts,
+            boolean restrictionsAnswered,
+            BigDecimal confidence
+    ) {
+        this(relevant, intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
+                cookingTime, servings, unknownTerms, conflicts, confidence, restrictionsAnswered);
+    }
+
     public static ConversationAnswerAnalysis invalid() {
         return new ConversationAnswerAnalysis(
                 false, null, null, List.of(), List.of(), List.of(),
-                null, null, List.of(), List.of(), BigDecimal.ZERO
+                null, null, List.of(), List.of(), BigDecimal.ZERO, false
         );
     }
 
