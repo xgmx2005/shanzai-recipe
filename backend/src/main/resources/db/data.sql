@@ -4,6 +4,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE recommendation_log;
 TRUNCATE TABLE shopping_list_item;
 TRUNCATE TABLE shopping_list;
+TRUNCATE TABLE recommendation_conversation_message;
+TRUNCATE TABLE recommendation_conversation;
 TRUNCATE TABLE recommendation_history;
 TRUNCATE TABLE favorite;
 TRUNCATE TABLE recipe_ingredient;

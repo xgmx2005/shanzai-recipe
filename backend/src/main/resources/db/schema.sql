@@ -4,6 +4,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS recommendation_log;
 DROP TABLE IF EXISTS shopping_list_item;
 DROP TABLE IF EXISTS shopping_list;
+DROP TABLE IF EXISTS recommendation_conversation_message;
+DROP TABLE IF EXISTS recommendation_conversation;
 DROP TABLE IF EXISTS recommendation_history;
 DROP TABLE IF EXISTS favorite;
 DROP TABLE IF EXISTS recipe_ingredient;
@@ -117,10 +119,12 @@ CREATE TABLE recommendation_history (
     user_id BIGINT NOT NULL,
     input_ingredients TEXT,
     excluded_ingredients TEXT,
+    conversation_context_json JSON,
     diet_goal VARCHAR(30) NOT NULL,
     cooking_time INT,
     servings INT NOT NULL DEFAULT 1,
     result_recipe_ids VARCHAR(255),
+    result_detail_json JSON,
     ai_summary TEXT,
     ai_health_tip TEXT,
     ai_shopping_tip TEXT,
@@ -129,6 +133,36 @@ CREATE TABLE recommendation_history (
     KEY idx_recommendation_history_user (user_id),
     KEY idx_recommendation_history_goal (diet_goal),
     CONSTRAINT fk_recommendation_history_user FOREIGN KEY (user_id) REFERENCES `user` (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_conversation (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    stage VARCHAR(30) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    context_json JSON NOT NULL,
+    invalid_answer_count INT NOT NULL DEFAULT 0,
+    recommendation_history_id BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_recommendation_conversation_user_status (user_id, status),
+    CONSTRAINT fk_recommendation_conversation_user FOREIGN KEY (user_id) REFERENCES `user` (id),
+    CONSTRAINT fk_recommendation_conversation_history FOREIGN KEY (recommendation_history_id)
+        REFERENCES recommendation_history (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_conversation_message (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id BIGINT NOT NULL,
+    client_message_id VARCHAR(64),
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    extracted_data_json JSON,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_conversation_client_message (conversation_id, client_message_id),
+    KEY idx_conversation_message_order (conversation_id, id),
+    CONSTRAINT fk_conversation_message_conversation FOREIGN KEY (conversation_id)
+        REFERENCES recommendation_conversation (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE shopping_list (
