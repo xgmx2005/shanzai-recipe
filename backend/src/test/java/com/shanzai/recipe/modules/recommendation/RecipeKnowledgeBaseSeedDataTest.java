@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,6 +44,20 @@ class RecipeKnowledgeBaseSeedDataTest {
                 "missing ingredient id " + row.ingredientId() + " for recipe " + row.recipeId());
             assertTrue(seedData.recipes().containsKey(row.recipeId()),
                 "missing recipe id " + row.recipeId());
+        }
+    }
+
+    @Test
+    void seedDataIngredientUnitsRemainDomainUnits() throws IOException {
+        String values = valuesBlock(Files.readString(DATA_SQL), "ingredient");
+        Set<String> allowedUnits = Set.of("g", "ml", "个", "张", "片");
+
+        for (String row : splitRows(values)) {
+            List<String> columns = splitSqlColumns(row);
+            String name = unquote(columns.get(1));
+            String unit = unquote(columns.get(3));
+            assertTrue(allowedUnits.contains(unit), name + " should use a real ingredient unit");
+            assertFalse(unit.startsWith("/images/"), name + " unit should not contain an image path");
         }
     }
 
@@ -83,16 +98,16 @@ class RecipeKnowledgeBaseSeedDataTest {
     void expandedRecipesUseDedicatedVisualAssets() throws IOException {
         SeedData seedData = parseSeedData();
         Map<Long, String> expectedImages = Map.ofEntries(
-            Map.entry(22L, "/images/recipes/pexels-chicken-salad-bowl.jpg"),
-            Map.entry(25L, "/images/recipes/purple-sweet-potato-yogurt-bowl.jpg"),
-            Map.entry(26L, "/images/recipes/cucumber-shrimp-egg-cup.jpg"),
-            Map.entry(30L, "/images/recipes/tomato-beef-soba-noodle.jpg"),
-            Map.entry(31L, "/images/recipes/pumpkin-egg-grain-porridge.jpg"),
-            Map.entry(33L, "/images/recipes/pork-cabbage-fried-rice.jpg"),
-            Map.entry(37L, "/images/recipes/pexels-buddha-sweet-potato-bowl.jpg"),
-            Map.entry(39L, "/images/recipes/pexels-shrimp-avocado-salad.jpg"),
-            Map.entry(41L, "/images/recipes/pexels-quinoa-chicken-bowl.jpg"),
-            Map.entry(43L, "/images/recipes/basa-sweet-potato-training-plate.jpg")
+            Map.entry(22L, "/images/recipes/pexels-recipe-22-chicken-salad-bowl.jpg"),
+            Map.entry(25L, "/images/recipes/pexels-recipe-25-sweet-potato-yogurt-bowl.jpg"),
+            Map.entry(26L, "/images/recipes/pexels-recipe-26-cucumber-shrimp-egg-cup.jpg"),
+            Map.entry(30L, "/images/recipes/pexels-recipe-30-tomato-beef-soba-noodle.jpg"),
+            Map.entry(31L, "/images/recipes/pexels-recipe-31-pumpkin-egg-porridge.jpg"),
+            Map.entry(33L, "/images/recipes/pexels-recipe-33-pork-cabbage-fried-rice.jpg"),
+            Map.entry(37L, "/images/recipes/pexels-recipe-37-buddha-sweet-potato-bowl.jpg"),
+            Map.entry(39L, "/images/recipes/pexels-recipe-39-shrimp-avocado-salad.jpg"),
+            Map.entry(41L, "/images/recipes/pexels-recipe-41-quinoa-chicken-bowl.jpg"),
+            Map.entry(43L, "/images/recipes/pexels-recipe-43-fish-sweet-potato-plate.jpg")
         );
 
         for (Map.Entry<Long, String> expected : expectedImages.entrySet()) {
@@ -106,18 +121,18 @@ class RecipeKnowledgeBaseSeedDataTest {
     void highVisibilityRecipesUsePremiumPexelsLightMealImages() throws IOException {
         SeedData seedData = parseSeedData();
         Map<Long, String> expectedImages = Map.ofEntries(
-            Map.entry(1L, "/images/recipes/pexels-chicken-broccoli-bowl.jpg"),
-            Map.entry(4L, "/images/recipes/pexels-tuna-egg-salad-bowl.jpg"),
-            Map.entry(10L, "/images/recipes/pexels-salmon-poke-bowl.jpg"),
-            Map.entry(13L, "/images/recipes/pexels-bulgogi-beef-rice-bowl.jpg"),
-            Map.entry(16L, "/images/recipes/pexels-tofu-broccoli-bowl.jpg"),
-            Map.entry(22L, "/images/recipes/pexels-chicken-salad-bowl.jpg"),
-            Map.entry(28L, "/images/recipes/pexels-bibimbap-beef-rice-bowl.jpg"),
-            Map.entry(35L, "/images/recipes/pexels-chicken-kale-bowl.jpg"),
-            Map.entry(37L, "/images/recipes/pexels-buddha-sweet-potato-bowl.jpg"),
-            Map.entry(39L, "/images/recipes/pexels-shrimp-avocado-salad.jpg"),
-            Map.entry(41L, "/images/recipes/pexels-quinoa-chicken-bowl.jpg"),
-            Map.entry(45L, "/images/recipes/pexels-shrimp-poke-bowl.jpg")
+            Map.entry(1L, "/images/recipes/pexels-recipe-01-chicken-broccoli-bowl.jpg"),
+            Map.entry(4L, "/images/recipes/pexels-recipe-04-tuna-egg-salad-bowl.jpg"),
+            Map.entry(10L, "/images/recipes/pexels-recipe-10-salmon-poke-quinoa-bowl.jpg"),
+            Map.entry(13L, "/images/recipes/pexels-recipe-13-bulgogi-beef-rice-bowl.jpg"),
+            Map.entry(16L, "/images/recipes/pexels-recipe-16-tofu-broccoli-protein-bowl.jpg"),
+            Map.entry(22L, "/images/recipes/pexels-recipe-22-chicken-salad-bowl.jpg"),
+            Map.entry(28L, "/images/recipes/pexels-recipe-28-bibimbap-beef-rice-bowl.jpg"),
+            Map.entry(35L, "/images/recipes/pexels-recipe-35-chicken-kale-rice-bowl.jpg"),
+            Map.entry(37L, "/images/recipes/pexels-recipe-37-buddha-sweet-potato-bowl.jpg"),
+            Map.entry(39L, "/images/recipes/pexels-recipe-39-shrimp-avocado-salad.jpg"),
+            Map.entry(41L, "/images/recipes/pexels-recipe-41-quinoa-chicken-bowl.jpg"),
+            Map.entry(45L, "/images/recipes/pexels-recipe-45-shrimp-poke-bowl.jpg")
         );
 
         for (Map.Entry<Long, String> expected : expectedImages.entrySet()) {
@@ -125,6 +140,25 @@ class RecipeKnowledgeBaseSeedDataTest {
             assertTrue(recipe.imageUrl().equals(expected.getValue()),
                 recipe.name() + " should use premium Pexels image " + expected.getValue());
         }
+    }
+
+    @Test
+    void allSeedRecipesUseFullPexelsImageLibrary() throws IOException {
+        SeedData seedData = parseSeedData();
+        Set<String> imageUrls = new HashSet<>();
+
+        for (RecipeSeed recipe : seedData.recipes().values()) {
+            String imageUrl = recipe.imageUrl();
+            assertTrue(imageUrl.startsWith("/images/recipes/pexels-recipe-"),
+                recipe.name() + " should use a full Pexels library image");
+            assertTrue(imageUrl.endsWith(".jpg"),
+                recipe.name() + " should use a jpg Pexels library image");
+            Path asset = FRONTEND_PUBLIC.resolve(imageUrl.substring(1));
+            assertTrue(Files.exists(asset), "missing Pexels image asset " + asset);
+            assertTrue(imageUrls.add(imageUrl), "duplicate recipe image " + imageUrl);
+        }
+
+        assertEquals(seedData.recipes().size(), imageUrls.size(), "each recipe should have a distinct image");
     }
 
     private int countGoal(SeedData seedData, String goal) {
