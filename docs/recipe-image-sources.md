@@ -84,3 +84,56 @@ Notes:
 - Runtime pages load local files under `/images/recipes/`, so the app does not depend on Pexels availability.
 - Some photos remain visually similar substitutes rather than exact dishes. Keep replacing them with self-owned or closer licensed images when available.
 
+## Full Pexels Recipe Library
+
+Current seed data uses these local Pexels-backed images for all 45 recipes. Pexels was used only during asset collection; runtime pages load local files under `/images/recipes/`.
+
+| ID | 菜谱名 | 本地文件 | 摄影师 | 来源页 |
+| --- | --- | --- | --- | --- |
+| 1 | 鸡胸肉西兰花轻食碗 | `pexels-recipe-01-chicken-broccoli-bowl.jpg` | Loren Castillo | [Pexels photo 9213861](https://www.pexels.com/photo/a-close-up-shot-of-a-pasta-dish-9213861/) |
+| 2 | 虾仁豆腐蔬菜汤 | `pexels-recipe-02-shrimp-tofu-vegetable-soup.jpg` | STUDIO LIMA | [Pexels photo 15177422](https://www.pexels.com/photo/food-in-pot-15177422/) |
+| 3 | 番茄鸡蛋燕麦粥 | `pexels-recipe-03-tomato-egg-oatmeal.jpg` | AI25.Studio  Studio | [Pexels photo 6823322](https://www.pexels.com/photo/a-bowl-of-food-over-blue-surface-6823322/) |
+| 4 | 金枪鱼生菜沙拉 | `pexels-recipe-04-tuna-egg-salad-bowl.jpg` | Alesia  Kozik | [Pexels photo 6544260](https://www.pexels.com/photo/tuna-and-green-beans-with-egg-salad-in-ceramic-bowl-6544260/) |
+| 5 | 香煎鳕鱼配芦笋 | `pexels-recipe-05-cod-asparagus-plate.jpg` | Little forest 작은 숲 | [Pexels photo 31122634](https://www.pexels.com/photo/elegant-gourmet-cuisine-with-fresh-salad-31122634/) |
+| 6 | 鸡蛋豆腐蒸羹 | `pexels-recipe-06-egg-tofu-custard.jpg` | Gu Ko | [Pexels photo 36964133](https://www.pexels.com/photo/japanese-chawanmushi-dish-on-wooden-table-36964133/) |
+| 7 | 番茄炒蛋 | `pexels-recipe-07-tomato-scrambled-egg.jpg` | Nothing Ahead | [Pexels photo 20044229](https://www.pexels.com/photo/roasted-bread-scramble-eggs-and-tomato-salad-20044229/) |
+| 8 | 土豆胡萝卜炖牛肉 | `pexels-recipe-08-beef-potato-carrot-stew.jpg` | kirpiklipencere | [Pexels photo 38441087](https://www.pexels.com/photo/traditional-hungarian-goulash-in-pot-38441087/) |
+| 9 | 香菇青菜豆腐饭 | `pexels-recipe-09-mushroom-tofu-rice.jpg` | RDNE Stock project | [Pexels photo 6646088](https://www.pexels.com/photo/cooked-food-in-the-bowl-6646088/) |
+| 10 | 三文鱼藜麦饭 | `pexels-recipe-10-salmon-poke-quinoa-bowl.jpg` | Valeria Boltneva | [Pexels photo 15913453](https://www.pexels.com/photo/bowl-of-food-15913453/) |
+| 11 | 宫保鸡丁轻油版 | `pexels-recipe-11-kungpao-chicken-light.jpg` | Anil  Sharma | [Pexels photo 30708204](https://www.pexels.com/photo/delicious-kung-pao-chicken-on-white-plate-30708204/) |
+| 12 | 紫菜虾皮鸡蛋汤面 | `pexels-recipe-12-seaweed-egg-noodle-soup.jpg` | alleksana | [Pexels photo 4224213](https://www.pexels.com/photo/ramen-in-close-up-4224213/) |
+| 13 | 黑椒牛肉糙米饭 | `pexels-recipe-13-bulgogi-beef-rice-bowl.jpg` | Luis Becerra  Fotógrafo | [Pexels photo 5774000](https://www.pexels.com/photo/top-view-of-a-bulgogi-beef-bowl-5774000/) |
+| 14 | chicken avocado wrap | `pexels-recipe-14-chicken-avocado-wrap.jpg` | Shameel mukkath | [Pexels photo 5112582](https://www.pexels.com/photo/green-vegetables-in-a-wrap-in-close-up-photography-5112582/) |
+| 15 | 煎蛋牛肉藜麦碗 | `pexels-recipe-15-beef-egg-quinoa-bowl.jpg` | Suryq | [Pexels photo 8216852](https://www.pexels.com/photo/dinner-with-poached-eggs-8216852/) |
+| 16 | 豆腐鸡肉蛋白餐 | `pexels-recipe-16-tofu-broccoli-protein-bowl.jpg` | Alesia  Kozik | [Pexels photo 6120233](https://www.pexels.com/photo/cooked-food-on-white-ceramic-bowl-6120233/) |
+| 17 | 金枪鱼玉米全麦三明治 | `pexels-recipe-17-tuna-corn-sandwich.jpg` | Nano Erdozain | [Pexels photo 27905900](https://www.pexels.com/photo/a-sandwich-with-cheese-lettuce-tomato-and-fries-27905900/) |
+| 18 | 虾仁鸡蛋炒意面 | `pexels-recipe-18-shrimp-egg-pasta.jpg` | douglas  miller | [Pexels photo 5411629](https://www.pexels.com/photo/close-up-photo-of-pasta-on-plate-5411629/) |
+| 19 | 冬瓜虾仁汤 | `pexels-recipe-19-shrimp-winter-melon-soup.jpg` | FOX ^.ᆽ.^= ∫ | [Pexels photo 5850335](https://www.pexels.com/photo/a-soup-in-a-ceramic-bowl-5850335/) |
+| 20 | 菠菜鸡蛋豆腐汤 | `pexels-recipe-20-spinach-egg-tofu-soup.jpg` | Connor Scott McManus | [Pexels photo 11783315](https://www.pexels.com/photo/a-close-up-shot-of-bowl-of-pho-11783315/) |
+| 21 | 巴沙鱼西兰花轻食盘 | `pexels-recipe-21-fish-broccoli-plate.jpg` | Valeria Boltneva | [Pexels photo 16134559](https://www.pexels.com/photo/fish-with-vegetables-16134559/) |
+| 22 | 鸡腿肉南瓜沙拉 | `pexels-recipe-22-chicken-salad-bowl.jpg` | Valeria Boltneva | [Pexels photo 842545](https://www.pexels.com/photo/round-stainless-steel-bowl-with-cooked-meat-and-vegetables-842545/) |
+| 23 | 番茄豆腐菌菇汤 | `pexels-recipe-23-tomato-tofu-mushroom-soup.jpg` | FOX ^.ᆽ.^= ∫ | [Pexels photo 10748641](https://www.pexels.com/photo/vase-with-a-soup-with-corn-potatoes-and-mushrooms-10748641/) |
+| 24 | 西葫芦鸡胸肉炒蛋 | `pexels-recipe-24-zucchini-chicken-egg.jpg` | Heber Vazquez | [Pexels photo 27870597](https://www.pexels.com/photo/a-bowl-of-salad-with-chicken-and-vegetables-27870597/) |
+| 25 | 紫薯酸奶轻食碗 | `pexels-recipe-25-sweet-potato-yogurt-bowl.jpg` | Piotr Arnoldes | [Pexels photo 7111468](https://www.pexels.com/photo/breakfast-for-two-served-in-plates-with-coffee-cups-and-spoons-7111468/) |
+| 26 | 黄瓜虾仁鸡蛋杯 | `pexels-recipe-26-cucumber-shrimp-egg-cup.jpg` | Valeria Boltneva | [Pexels photo 10875293](https://www.pexels.com/photo/close-up-photograph-of-a-cuisine-with-shrimps-10875293/) |
+| 27 | 白菜豆腐鸡肉汤 | `pexels-recipe-27-cabbage-tofu-chicken-soup.jpg` | Gu Ko | [Pexels photo 36414761](https://www.pexels.com/photo/delicious-chinese-cabbage-in-savory-sauce-36414761/) |
+| 28 | 洋葱彩椒牛肉饭 | `pexels-recipe-28-bibimbap-beef-rice-bowl.jpg` | Luis Becerra  Fotógrafo | [Pexels photo 5773972](https://www.pexels.com/photo/fried-egg-on-vegetables-5773972/) |
+| 29 | 香菇鸡腿肉杂粮饭 | `pexels-recipe-29-mushroom-chicken-grain-rice.jpg` | Nadin Sh | [Pexels photo 24738520](https://www.pexels.com/photo/a-bowl-of-chicken-and-rice-24738520/) |
+| 30 | 番茄牛肉荞麦面 | `pexels-recipe-30-tomato-beef-soba-noodle.jpg` | Nadin Sh | [Pexels photo 24738521](https://www.pexels.com/photo/close-up-of-a-bowl-of-ramen-24738521/) |
+| 31 | 南瓜鸡蛋杂粮粥 | `pexels-recipe-31-pumpkin-egg-porridge.jpg` | Jana Ohajdova | [Pexels photo 10110914](https://www.pexels.com/photo/a-close-up-shot-of-a-pumpkin-soup-10110914/) |
+| 32 | 西红柿豆腐炖牛肉 | `pexels-recipe-32-tomato-tofu-beef-stew.jpg` | one  click | [Pexels photo 30678525](https://www.pexels.com/photo/delicious-roast-beef-in-tomato-sauce-on-stove-30678525/) |
+| 33 | 白菜猪里脊炒饭 | `pexels-recipe-33-pork-cabbage-fried-rice.jpg` | Snappr | [Pexels photo 29872968](https://www.pexels.com/photo/crispy-tonkatsu-with-shredded-cabbage-garnish-29872968/) |
+| 34 | 菌菇青菜鸡蛋面 | `pexels-recipe-34-mushroom-greens-egg-noodle.jpg` | An Hoàng | [Pexels photo 36511368](https://www.pexels.com/photo/delicious-bowl-of-ramen-with-eggs-and-vegetables-36511368/) |
+| 35 | 彩椒豆腐鸡肉盖饭 | `pexels-recipe-35-chicken-kale-rice-bowl.jpg` | Loren Castillo | [Pexels photo 9213874](https://www.pexels.com/photo/a-close-up-shot-of-a-delicious-dish-9213874/) |
+| 36 | 玉米鸡蛋牛奶粥 | `pexels-recipe-36-corn-egg-milk-oatmeal.jpg` | Nadin Sh | [Pexels photo 19051901](https://www.pexels.com/photo/a-bowl-of-tuna-salad-with-eggs-19051901/) |
+| 37 | 孜然牛肉红薯碗 | `pexels-recipe-37-buddha-sweet-potato-bowl.jpg` | Heather Brock | [Pexels photo 6978234](https://www.pexels.com/photo/mouthwatering-buddha-bowl-6978234/) |
+| 38 | 鸡腿排杂粮饭 | `pexels-recipe-38-chicken-thigh-grain-rice.jpg` | She  Eats | [Pexels photo 13788770](https://www.pexels.com/photo/top-view-of-a-creamy-soup-and-a-salad-with-chicken-13788770/) |
+| 39 | 虾仁牛油果荞麦面 | `pexels-recipe-39-shrimp-avocado-salad.jpg` | Valeria Boltneva | [Pexels photo 10875192](https://www.pexels.com/photo/seafood-based-dish-served-on-white-plate-10875192/) |
+| 40 | 猪里脊鸡蛋蛋白餐 | `pexels-recipe-40-pork-egg-protein-plate.jpg` | J MAD | [Pexels photo 12973148](https://www.pexels.com/photo/cooked-food-on-black-bowl-12973148/) |
+| 41 | 牛肉毛豆藜麦饭 | `pexels-recipe-41-quinoa-chicken-bowl.jpg` | kei photo | [Pexels photo 2741448](https://www.pexels.com/photo/top-view-photo-of-food-on-top-of-baking-rack-2741448/) |
+| 42 | 鸡胸肉酸奶全麦卷 | `pexels-recipe-42-chicken-yogurt-wrap.jpg` | Valeria Boltneva | [Pexels photo 16022887](https://www.pexels.com/photo/doner-on-plate-16022887/) |
+| 43 | 巴沙鱼红薯训练餐 | `pexels-recipe-43-fish-sweet-potato-plate.jpg` | Gu Ko | [Pexels photo 37332337](https://www.pexels.com/photo/traditional-japanese-salmon-and-sweet-potato-dish-37332337/) |
+| 44 | 双蛋牛肉杂粮饭 | `pexels-recipe-44-beef-double-egg-rice.jpg` | FOX ^.ᆽ.^= ∫ | [Pexels photo 37290956](https://www.pexels.com/photo/delicious-beef-rice-bowl-with-sesame-seeds-37290956/) |
+| 45 | 虾仁豆腐高蛋白盖饭 | `pexels-recipe-45-shrimp-poke-bowl.jpg` | Kei Scampa | [Pexels photo 4687067](https://www.pexels.com/photo/crop-person-cooking-poke-bowl-in-cafe-4687067/) |
+
+The temporary Pexels API key is not stored in the repository. Keep this source table for traceability during demos and reports.
