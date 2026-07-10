@@ -10,6 +10,7 @@ import IngredientIcon from '@/components/IngredientIcon.vue'
 import IngredientTagInput from '@/components/IngredientTagInput.vue'
 import type { DietGoal, Difficulty, RecipeDetail } from '@/types'
 import { replaceImageWithFallback, resolveRecipeImage, resolveRecipeImagePosition } from '@/utils/assets'
+import { shoppingListRoute } from '@/utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,13 +117,7 @@ async function makeShoppingList() {
     shoppingModalOpen.value = false
     availableIngredients.value = []
     message.success('购物清单已生成')
-    await router.push({
-      path: '/user/shopping-lists',
-      query: {
-        listId: String(list.id),
-        from: fromRecommendation.value ? 'recommendation-detail' : 'recipe-detail',
-      },
-    })
+    await router.push(shoppingListRoute(list.id, fromRecommendation.value ? 'recommendation-detail' : 'recipe-detail'))
   } catch (err) {
     message.error(err instanceof Error ? err.message : '生成购物清单失败')
   } finally {

@@ -8,6 +8,7 @@ import IngredientIcon from '@/components/IngredientIcon.vue'
 import { getRecommendationHistory, listRecommendationHistory } from '@/api/recommendation'
 import type { RecommendationHistoryDetail, RecommendationHistorySummary } from '@/types'
 import { replaceImageWithFallback, resolveRecipeImage } from '@/utils/assets'
+import { shoppingListRoute } from '@/utils/navigation'
 
 const message = useMessage()
 const router = useRouter()
@@ -79,12 +80,13 @@ async function makeShoppingList() {
   if (!detail.value?.resultRecipeIds.length) return
   creating.value = true
   try {
-    await createShoppingList({
+    const list = await createShoppingList({
       recipeIds: detail.value.resultRecipeIds,
       availableIngredients: detail.value.inputIngredients,
       title: `推荐 #${detail.value.id} 采购清单`,
     })
     message.success('购物清单已生成')
+    await router.push(shoppingListRoute(list.id, 'recommendation-history'))
   } catch (err) {
     message.error(err instanceof Error ? err.message : '生成购物清单失败')
   } finally {
