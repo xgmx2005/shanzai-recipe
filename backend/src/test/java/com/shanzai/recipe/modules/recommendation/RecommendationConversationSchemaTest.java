@@ -6,12 +6,47 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecommendationConversationSchemaTest {
+    private static final String CONVERSATION_TABLE = "recommendation_conversation";
+    private static final String MESSAGE_TABLE = "recommendation_conversation_message";
+
+    private static final List<String> CONVERSATION_TABLE_CONTRACT = List.of(
+            "id BIGINT PRIMARY KEY AUTO_INCREMENT",
+            "user_id BIGINT NOT NULL",
+            "stage VARCHAR(30) NOT NULL",
+            "status VARCHAR(30) NOT NULL",
+            "context_json JSON NOT NULL",
+            "invalid_answer_count INT NOT NULL DEFAULT 0",
+            "recommendation_history_id BIGINT NULL",
+            "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+            "KEY idx_recommendation_conversation_user_status (user_id, status)",
+            "CONSTRAINT fk_recommendation_conversation_user FOREIGN KEY (user_id) REFERENCES `user` (id)",
+            "CONSTRAINT fk_recommendation_conversation_history FOREIGN KEY (recommendation_history_id) "
+                    + "REFERENCES recommendation_history (id)"
+    );
+
+    private static final List<String> MESSAGE_TABLE_CONTRACT = List.of(
+            "id BIGINT PRIMARY KEY AUTO_INCREMENT",
+            "conversation_id BIGINT NOT NULL",
+            "client_message_id VARCHAR(64)",
+            "role VARCHAR(20) NOT NULL",
+            "content TEXT NOT NULL",
+            "extracted_data_json JSON",
+            "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "UNIQUE KEY uk_conversation_client_message (conversation_id, client_message_id)",
+            "KEY idx_conversation_message_order (conversation_id, id)",
+            "CONSTRAINT fk_conversation_message_conversation FOREIGN KEY (conversation_id) "
+                    + "REFERENCES recommendation_conversation (id)"
+    );
+
     private String schema;
     private String data;
     private String migration;
@@ -24,45 +59,26 @@ class RecommendationConversationSchemaTest {
     }
 
     @Test
-    void migrationCreatesBothConversationTablesWithoutDroppingExistingData() {
-        String conversationTable = """
-                CREATE TABLE IF NOT EXISTS recommendation_conversation (
-                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                    user_id BIGINT NOT NULL,
-                    stage VARCHAR(30) NOT NULL,
-                    status VARCHAR(30) NOT NULL,
-                    context_json JSON NOT NULL,
-                    invalid_answer_count INT NOT NULL DEFAULT 0,
-                    recommendation_history_id BIGINT NULL,
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    KEY idx_recommendation_conversation_user_status (user_id, status),
-                    CONSTRAINT fk_recommendation_conversation_user FOREIGN KEY (user_id) REFERENCES `user` (id),
-                    CONSTRAINT fk_recommendation_conversation_history FOREIGN KEY (recommendation_history_id)
-                        REFERENCES recommendation_history (id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                """.strip();
-        String messageTable = """
-                CREATE TABLE IF NOT EXISTS recommendation_conversation_message (
-                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-                    conversation_id BIGINT NOT NULL,
-                    client_message_id VARCHAR(64),
-                    role VARCHAR(20) NOT NULL,
-                    content TEXT NOT NULL,
-                    extracted_data_json JSON,
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE KEY uk_conversation_client_message (conversation_id, client_message_id),
-                    KEY idx_conversation_message_order (conversation_id, id),
-                    CONSTRAINT fk_conversation_message_conversation FOREIGN KEY (conversation_id)
-                        REFERENCES recommendation_conversation (id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                """.strip();
+    void migrationCreatesExactlyTwoConversationTablesWithoutDroppingExistingData() {
+        extractCreateTableBody(migration, CONVERSATION_TABLE);
+        extractCreateTableBody(migration, MESSAGE_TABLE);
 
-        assertContains(migration, conversationTable, "migration must contain the complete conversation table definition");
-        assertContains(migration, messageTable, "migration must contain the complete message table definition");
-        assertEquals(2, countOccurrences(migration, "CREATE TABLE IF NOT EXISTS "),
+        assertEquals(2, countOccurrences(normalizeWhitespace(migration), "CREATE TABLE IF NOT EXISTS "),
                 "migration must contain exactly two idempotent CREATE TABLE statements");
-        assertFalse(migration.contains("DROP TABLE"), "migration must not drop existing tables");
+        assertFalse(normalizeWhitespace(migration).contains("DROP TABLE"),
+                "migration must not drop existing tables");
+    }
+
+    @Test
+    void schemaAndMigrationDefineCompleteConversationTableContract() {
+        assertTableContract(schema, "schema", CONVERSATION_TABLE, CONVERSATION_TABLE_CONTRACT);
+        assertTableContract(migration, "migration", CONVERSATION_TABLE, CONVERSATION_TABLE_CONTRACT);
+    }
+
+    @Test
+    void schemaAndMigrationDefineCompleteMessageTableContract() {
+        assertTableContract(schema, "schema", MESSAGE_TABLE, MESSAGE_TABLE_CONTRACT);
+        assertTableContract(migration, "migration", MESSAGE_TABLE, MESSAGE_TABLE_CONTRACT);
     }
 
     @Test
@@ -82,7 +98,7 @@ class RecommendationConversationSchemaTest {
                 PREPARE context_stmt FROM @context_sql;
                 EXECUTE context_stmt;
                 DEALLOCATE PREPARE context_stmt;
-                """.strip();
+                """;
         String resultDetailAlter = """
                 SET @has_result_detail = (
                     SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -98,69 +114,141 @@ class RecommendationConversationSchemaTest {
                 PREPARE result_stmt FROM @result_sql;
                 EXECUTE result_stmt;
                 DEALLOCATE PREPARE result_stmt;
-                """.strip();
+                """;
 
-        assertContains(migration, conversationContextAlter,
+        assertContainsNormalized(migration, conversationContextAlter,
                 "conversation_context_json ALTER must remain guarded and idempotent");
-        assertContains(migration, resultDetailAlter,
+        assertContainsNormalized(migration, resultDetailAlter,
                 "result_detail_json ALTER must remain guarded and idempotent");
     }
 
     @Test
-    void schemaDefinesConversationKeysIndexesAndJsonColumnsExactly() {
-        assertContains(schema,
-                "UNIQUE KEY uk_conversation_client_message (conversation_id, client_message_id),",
-                "message idempotency key must cover conversation_id and client_message_id");
-        assertContains(schema,
-                "KEY idx_recommendation_conversation_user_status (user_id, status),",
-                "conversation lookup index must cover user_id and status");
-        assertContains(schema,
-                "KEY idx_conversation_message_order (conversation_id, id),",
-                "message ordering index must cover conversation_id and id");
-        assertContains(schema,
-                "CONSTRAINT fk_recommendation_conversation_user FOREIGN KEY (user_id) REFERENCES `user` (id),",
-                "conversation user foreign key must retain its full definition");
-        assertContains(schema, """
-                CONSTRAINT fk_recommendation_conversation_history FOREIGN KEY (recommendation_history_id)
-                        REFERENCES recommendation_history (id)
-                """.strip(), "conversation history foreign key must retain its full definition");
-        assertContains(schema, """
-                CONSTRAINT fk_conversation_message_conversation FOREIGN KEY (conversation_id)
-                        REFERENCES recommendation_conversation (id)
-                """.strip(), "message conversation foreign key must retain its full definition");
-        assertContains(schema, "context_json JSON NOT NULL,", "conversation context must be required JSON");
-        assertContains(schema, "extracted_data_json JSON,", "message extraction data must remain JSON");
-        assertContains(schema, "conversation_context_json JSON,", "history conversation context must remain JSON");
-        assertContains(schema, "result_detail_json JSON,", "history result detail must remain JSON");
+    void schemaDefinesHistoryJsonColumnsInsideRecommendationHistoryTable() {
+        List<String> historyClauses = splitTableClauses(
+                extractCreateTableBody(schema, "recommendation_history"));
+
+        assertTrue(historyClauses.contains("conversation_context_json JSON"),
+                "recommendation_history must contain nullable conversation_context_json JSON");
+        assertTrue(historyClauses.contains("result_detail_json JSON"),
+                "recommendation_history must contain nullable result_detail_json JSON");
     }
 
     @Test
     void schemaDropsConversationTablesBeforeRecommendationHistory() {
-        assertContains(schema, """
-                DROP TABLE IF EXISTS recommendation_conversation_message;
-                DROP TABLE IF EXISTS recommendation_conversation;
-                DROP TABLE IF EXISTS recommendation_history;
-                """.strip(), "schema drop order must be message, conversation, then recommendation history");
+        assertInOrder(normalizeWhitespace(schema),
+                "DROP TABLE IF EXISTS recommendation_conversation_message;",
+                "DROP TABLE IF EXISTS recommendation_conversation;",
+                "DROP TABLE IF EXISTS recommendation_history;");
     }
 
     @Test
-    void dataCleansConversationTablesBeforeRecommendationHistory() {
-        assertContains(data, """
-                TRUNCATE TABLE recommendation_conversation_message;
-                TRUNCATE TABLE recommendation_conversation;
-                TRUNCATE TABLE recommendation_history;
-                """.strip(), "data cleanup order must be message, conversation, then recommendation history");
+    void dataCleansConversationTablesInOrderWhileForeignKeysAreDisabled() {
+        String foreignKeyDisabledBlock = extractForeignKeyDisabledBlock(data);
+
+        assertInOrder(foreignKeyDisabledBlock,
+                "TRUNCATE TABLE recommendation_conversation_message;",
+                "TRUNCATE TABLE recommendation_conversation;",
+                "TRUNCATE TABLE recommendation_history;");
     }
 
     private static String readSql(String path) throws IOException {
-        return Files.readString(Path.of(path)).replace("\r\n", "\n");
+        return Files.readString(Path.of(path));
+    }
+
+    private static void assertTableContract(
+            String sql,
+            String scriptName,
+            String tableName,
+            List<String> expectedClauses
+    ) {
+        List<String> actualClauses = splitTableClauses(extractCreateTableBody(sql, tableName));
+
+        assertEquals(expectedClauses.size(), actualClauses.size(),
+                () -> scriptName + " " + tableName + " must contain exactly the contracted clauses\nActual: "
+                        + actualClauses);
+        for (String expectedClause : expectedClauses) {
+            String normalizedClause = normalizeWhitespace(expectedClause);
+            assertTrue(actualClauses.contains(normalizedClause),
+                    () -> scriptName + " " + tableName + " is missing clause: " + normalizedClause
+                            + "\nActual: " + actualClauses);
+        }
+    }
+
+    private static String extractCreateTableBody(String sql, String tableName) {
+        String normalizedSql = normalizeWhitespace(sql);
+        String idempotentPrefix = "CREATE TABLE IF NOT EXISTS " + tableName + " (";
+        String schemaPrefix = "CREATE TABLE " + tableName + " (";
+        int bodyStart = normalizedSql.indexOf(idempotentPrefix);
+
+        if (bodyStart >= 0) {
+            bodyStart += idempotentPrefix.length();
+        } else {
+            bodyStart = normalizedSql.indexOf(schemaPrefix);
+            assertTrue(bodyStart >= 0, () -> "missing CREATE TABLE block for " + tableName);
+            bodyStart += schemaPrefix.length();
+        }
+
+        int bodyEnd = normalizedSql.indexOf(") ENGINE=", bodyStart);
+        assertTrue(bodyEnd > bodyStart, () -> "incomplete CREATE TABLE block for " + tableName);
+        return normalizedSql.substring(bodyStart, bodyEnd).trim();
+    }
+
+    private static List<String> splitTableClauses(String tableBody) {
+        List<String> clauses = new ArrayList<>();
+        int parenthesesDepth = 0;
+        int clauseStart = 0;
+
+        for (int index = 0; index < tableBody.length(); index++) {
+            char current = tableBody.charAt(index);
+            if (current == '(') {
+                parenthesesDepth++;
+            } else if (current == ')') {
+                parenthesesDepth--;
+            } else if (current == ',' && parenthesesDepth == 0) {
+                clauses.add(normalizeWhitespace(tableBody.substring(clauseStart, index)));
+                clauseStart = index + 1;
+            }
+        }
+
+        clauses.add(normalizeWhitespace(tableBody.substring(clauseStart)));
+        return clauses;
+    }
+
+    private static String extractForeignKeyDisabledBlock(String sql) {
+        String normalizedSql = normalizeWhitespace(sql);
+        String disableStatement = "SET FOREIGN_KEY_CHECKS = 0;";
+        String enableStatement = "SET FOREIGN_KEY_CHECKS = 1;";
+        int blockStart = normalizedSql.indexOf(disableStatement);
+        assertTrue(blockStart >= 0, "data.sql must disable foreign key checks before cleanup");
+        blockStart += disableStatement.length();
+
+        int blockEnd = normalizedSql.indexOf(enableStatement, blockStart);
+        assertTrue(blockEnd > blockStart, "data.sql must re-enable foreign key checks after cleanup");
+        return normalizedSql.substring(blockStart, blockEnd).trim();
+    }
+
+    private static void assertInOrder(String text, String... expectedStatements) {
+        int previousPosition = -1;
+        for (String expectedStatement : expectedStatements) {
+            int currentPosition = text.indexOf(expectedStatement, previousPosition + 1);
+            assertTrue(currentPosition > previousPosition,
+                    () -> "expected SQL statement in order: " + expectedStatement + "\nSQL: " + text);
+            previousPosition = currentPosition;
+        }
     }
 
     private static int countOccurrences(String text, String expected) {
         return (text.length() - text.replace(expected, "").length()) / expected.length();
     }
 
-    private static void assertContains(String actual, String expected, String message) {
-        assertTrue(actual.contains(expected), () -> message + "\nExpected SQL fragment:\n" + expected);
+    private static void assertContainsNormalized(String actual, String expected, String message) {
+        String normalizedActual = normalizeWhitespace(actual);
+        String normalizedExpected = normalizeWhitespace(expected);
+        assertTrue(normalizedActual.contains(normalizedExpected),
+                () -> message + "\nExpected SQL fragment: " + normalizedExpected);
+    }
+
+    private static String normalizeWhitespace(String sql) {
+        return sql.replaceAll("\\s+", " ").trim();
     }
 }
