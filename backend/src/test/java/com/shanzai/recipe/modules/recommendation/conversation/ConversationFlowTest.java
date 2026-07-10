@@ -191,6 +191,20 @@ class ConversationFlowTest {
     }
 
     @Test
+    void invalidAnswerCountSaturatesAtIntegerMaximum() {
+        ConversationTransition transition = flow.apply(
+                ConversationStage.CONTEXT,
+                ConversationStatus.ACTIVE,
+                RecommendationConversationContext.empty(),
+                Integer.MAX_VALUE,
+                ConversationAnswerAnalysis.invalid()
+        );
+
+        assertEquals(Integer.MAX_VALUE, transition.invalidAnswerCount());
+        assertEquals(GuidanceMode.RESTART_OPTION, transition.guidanceMode());
+    }
+
+    @Test
     void unknownTermsAndConflictsPreventConfirmation() {
         ConversationAnswerAnalysis analysis = completeAnalysis(
                 true,
@@ -210,6 +224,95 @@ class ConversationFlowTest {
         assertFalse(transition.status() == ConversationStatus.READY_TO_CONFIRM);
         assertEquals(analysis.unknownTerms(), transition.context().unknownTerms());
         assertEquals(analysis.conflicts(), transition.context().conflicts());
+    }
+
+    @Test
+    void resolvedIssuesReplacePreviousUnknownTermsAndConflicts() {
+        ConversationTransition unresolved = flow.apply(
+                ConversationStage.INTENT,
+                ConversationStatus.ACTIVE,
+                RecommendationConversationContext.empty(),
+                0,
+                completeAnalysis(true, List.of("神秘食材"), List.of("冲突条件"))
+        );
+        ConversationAnswerAnalysis correction = new ConversationAnswerAnalysis(
+                true, null, null, List.of(), List.of(), List.of(),
+                null, null, List.of(), List.of(), BigDecimal.ONE
+        );
+
+        ConversationTransition resolved = flow.apply(
+                unresolved.stage(),
+                unresolved.status(),
+                unresolved.context(),
+                unresolved.invalidAnswerCount(),
+                correction
+        );
+
+        assertTrue(resolved.context().unknownTerms().isEmpty());
+        assertTrue(resolved.context().conflicts().isEmpty());
+        assertEquals(ConversationStage.CONFIRM, resolved.stage());
+        assertEquals(ConversationStatus.READY_TO_CONFIRM, resolved.status());
+    }
+
+    @Test
+    void nullStageOrStatusIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> flow.apply(
+                null, ConversationStatus.ACTIVE, null, 0, ConversationAnswerAnalysis.invalid()));
+        assertThrows(IllegalArgumentException.class, () -> flow.apply(
+                ConversationStage.INTENT, null, null, 0, ConversationAnswerAnalysis.invalid()));
+    }
+
+    @Test
+    void completedOrCancelledConversationCannotMigrate() {
+        assertThrows(IllegalStateException.class, () -> flow.apply(
+                ConversationStage.CONFIRM, ConversationStatus.COMPLETED,
+                RecommendationConversationContext.empty(), 0, ConversationAnswerAnalysis.invalid()));
+        assertThrows(IllegalStateException.class, () -> flow.apply(
+                ConversationStage.CONFIRM, ConversationStatus.CANCELLED,
+                RecommendationConversationContext.empty(), 0, ConversationAnswerAnalysis.invalid()));
+    }
+
+    @Test
+    void readyToConfirmCanBeEditedButIssuesKeepItActive() {
+        ConversationTransition ready = flow.apply(
+                ConversationStage.INTENT,
+                ConversationStatus.ACTIVE,
+                RecommendationConversationContext.empty(),
+                0,
+                completeAnalysis(true, List.of(), List.of())
+        );
+
+        ConversationTransition edited = flow.apply(
+                ready.stage(),
+                ready.status(),
+                ready.context(),
+                ready.invalidAnswerCount(),
+                completeAnalysis(true, List.of("待澄清词"), List.of())
+        );
+
+        assertEquals(ConversationStage.CONFIRM, edited.stage());
+        assertEquals(ConversationStatus.ACTIVE, edited.status());
+        assertEquals(List.of("待澄清词"), edited.context().unknownTerms());
+    }
+
+    @Test
+    void sameIngredientNameUsesLatestQuantityAndKeepsOneEntry() {
+        RecommendationConversationContext first = RecommendationConversationContext.empty().merge(
+                new ConversationAnswerAnalysis(
+                        true, "清淡", null,
+                        List.of(new AvailableIngredientInput("鸡胸肉", new BigDecimal("300"), "g", true)),
+                        List.of(), List.of(), null, null, List.of(), List.of(), BigDecimal.ONE
+                ));
+
+        RecommendationConversationContext merged = first.merge(
+                new ConversationAnswerAnalysis(
+                        true, null, null,
+                        List.of(new AvailableIngredientInput(" 鸡胸肉 ", new BigDecimal("500"), "g", true)),
+                        List.of(), List.of(), null, null, List.of(), List.of(), BigDecimal.ONE
+                ));
+
+        assertEquals(1, merged.availableIngredients().size());
+        assertEquals(new BigDecimal("500"), merged.availableIngredients().get(0).quantity());
     }
 
     @Test

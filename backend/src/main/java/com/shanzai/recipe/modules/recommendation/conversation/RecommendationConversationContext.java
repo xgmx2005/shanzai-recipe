@@ -2,7 +2,9 @@ package com.shanzai.recipe.modules.recommendation.conversation;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 
 public record RecommendationConversationContext(
         String intentText,
@@ -54,13 +56,13 @@ public record RecommendationConversationContext(
         return new RecommendationConversationContext(
                 preferNewText(intentText, analysis.intentText()),
                 preferNewText(dietGoal, analysis.dietGoal()),
-                mergeList(availableIngredients, analysis.availableIngredients()),
+                mergeIngredients(availableIngredients, analysis.availableIngredients()),
                 mergeList(excludedIngredients, analysis.excludedIngredients()),
                 mergeList(allergyIngredients, analysis.allergyIngredients()),
                 analysis.cookingTime() == null ? cookingTime : analysis.cookingTime(),
                 analysis.servings() == null ? servings : analysis.servings(),
-                mergeList(unknownTerms, analysis.unknownTerms()),
-                mergeList(conflicts, analysis.conflicts()),
+                analysis.unknownTerms(),
+                analysis.conflicts(),
                 restrictionsConfirmed || analysis.restrictionsAnswered()
         );
     }
@@ -82,6 +84,26 @@ public record RecommendationConversationContext(
         LinkedHashSet<T> merged = new LinkedHashSet<>(previous);
         merged.addAll(next);
         return List.copyOf(new ArrayList<>(merged));
+    }
+
+    private static List<AvailableIngredientInput> mergeIngredients(
+            List<AvailableIngredientInput> previous,
+            List<AvailableIngredientInput> next
+    ) {
+        LinkedHashMap<String, AvailableIngredientInput> merged = new LinkedHashMap<>();
+        for (AvailableIngredientInput ingredient : previous) {
+            merged.put(ingredientKey(ingredient), ingredient);
+        }
+        for (AvailableIngredientInput ingredient : next) {
+            merged.put(ingredientKey(ingredient), ingredient);
+        }
+        return List.copyOf(merged.values());
+    }
+
+    private static String ingredientKey(AvailableIngredientInput ingredient) {
+        return ingredient.name() == null
+                ? ""
+                : ingredient.name().trim().toLowerCase(Locale.ROOT);
     }
 
     private static <T> List<T> immutableList(List<T> values) {

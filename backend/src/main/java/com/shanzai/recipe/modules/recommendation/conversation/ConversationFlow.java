@@ -8,15 +8,17 @@ public final class ConversationFlow {
             int invalidAnswerCount,
             ConversationAnswerAnalysis analysis
     ) {
+        validateLifecycle(stage, status);
+
         RecommendationConversationContext currentContext = context == null
                 ? RecommendationConversationContext.empty()
                 : context;
 
         if (analysis == null || !analysis.relevant()) {
-            int nextInvalidAnswerCount = Math.max(0, invalidAnswerCount) + 1;
+            int nextInvalidAnswerCount = incrementInvalidAnswerCount(invalidAnswerCount);
             return new ConversationTransition(
                     stage,
-                    ConversationStatus.ACTIVE,
+                    status,
                     currentContext,
                     nextInvalidAnswerCount,
                     guidanceFor(nextInvalidAnswerCount)
@@ -44,6 +46,25 @@ public final class ConversationFlow {
                 0,
                 GuidanceMode.NORMAL
         );
+    }
+
+    private static void validateLifecycle(ConversationStage stage, ConversationStatus status) {
+        if (stage == null) {
+            throw new IllegalArgumentException("conversation stage must not be null");
+        }
+        if (status == null) {
+            throw new IllegalArgumentException("conversation status must not be null");
+        }
+        if (status == ConversationStatus.COMPLETED || status == ConversationStatus.CANCELLED) {
+            throw new IllegalStateException("terminal conversation cannot migrate");
+        }
+    }
+
+    private static int incrementInvalidAnswerCount(int invalidAnswerCount) {
+        if (invalidAnswerCount >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.max(0, invalidAnswerCount) + 1;
     }
 
     public ConversationStage firstMissingStage(RecommendationConversationContext context) {
