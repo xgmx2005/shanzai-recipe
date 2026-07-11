@@ -17,16 +17,19 @@ import java.util.regex.Pattern;
 @Component
 public class DictionaryConversationAnswerInterpreter implements ConversationAnswerInterpreter {
     private static final Pattern AMOUNT = Pattern.compile(
-            "(?:\\d+(?:\\.\\d+)?|[零一二三四五六七八九十百千万两]+)\\s*(克|g|千克|kg|毫升|ml|个)",
+            "(?:\\d+(?:\\.\\d+)?|[一二三四五六七八九十两]+)\\s*(克|g|千克|kg|毫升|ml|个)",
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern TIME = Pattern.compile(
-            "(?:\\d+(?:\\.\\d+)?|[一二三四五六七八九十百千万两]+)\\s*(小时|时|分钟|分|min|h)",
+            "(?:\\d+(?:\\.\\d+)?|[一二三四五六七八九十两]+)\\s*(小时|时|分钟|分|min|h)",
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern SERVINGS = Pattern.compile(
-            "(?:\\d+(?:\\.\\d+)?|[一二三四五六七八九十百千万两]+)\\s*(个人|人|人份|份)",
+            "(?:\\d+(?:\\.\\d+)?|[一二三四五六七八九十两]+)\\s*(个人|人|人份|份)",
             Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern MIXED_HOUR = Pattern.compile(
+            "(?:(\\d+|[一二三四五六七八九十两]+)\\s*(?:个)?\\s*半小时|(\\d+|[一二三四五六七八九十两]+)\\s*小时\\s*半)"
     );
     private static final Pattern NO_RESTRICTION = Pattern.compile(
             "无忌口|没有忌口|无过敏|没有过敏|不过敏|都可以吃|都能吃|不挑食|没有饮食禁忌|没有禁忌"
@@ -60,8 +63,10 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         List<IngredientOccurrence> occurrences = findIngredients(text);
         List<AvailableIngredientInput> ingredients = new ArrayList<>();
         List<String> newConflicts = new ArrayList<>();
+        int previousIngredientEnd = 0;
         for (IngredientOccurrence occurrence : occurrences) {
-            Amount amount = amountBefore(text, occurrence.start());
+            Amount amount = amountBefore(text, occurrence.start(), previousIngredientEnd);
+            previousIngredientEnd = occurrence.end();
             if (amount == null) {
                 ingredients.add(new AvailableIngredientInput(occurrence.name(), null, null, false));
             } else if (amount.quantity().compareTo(BigDecimal.ZERO) <= 0) {
@@ -94,6 +99,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         boolean restrictionsAnswered = NO_RESTRICTION.matcher(text).find()
                 || specificRestrictions.preference()
                 || !excluded.isEmpty() || !allergies.isEmpty();
+        removeRestrictedIngredients(ingredients, excluded, allergies);
         Integer cookingTime = extractTime(text);
         Integer servings = extractServings(text);
         String intentText = stage == ConversationStage.INTENT ? text : null;
@@ -146,6 +152,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         addUniqueAll(excluded, localRelevant ? local.excludedIngredients() : List.of());
         List<String> allergies = normalizedNames(candidate.allergyIngredients());
         addUniqueAll(allergies, localRelevant ? local.allergyIngredients() : List.of());
+        removeRestrictedIngredients(ingredients, excluded, allergies);
         boolean restrictionsAnswered = (localRelevant && local.restrictionsAnswered())
                 || (candidate.restrictionsAnswered() && (!excluded.isEmpty() || !allergies.isEmpty()));
 
@@ -168,7 +175,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         Integer people = candidate.servings() != null && candidate.servings() >= 1
                 ? candidate.servings() : localRelevant ? local.servings() : null;
         return new ConversationAnswerAnalysis(
-                candidate.relevant(),
+                candidate.relevant() || localRelevant,
                 hasText(candidate.intentText()) ? candidate.intentText() : localRelevant ? local.intentText() : null,
                 hasText(candidate.dietGoal()) ? candidate.dietGoal() : localRelevant ? local.dietGoal() : null,
                 ingredients, excluded, allergies, time, people, unknown, conflicts,
@@ -186,16 +193,22 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             return;
         }
         String name = normalizeName(input.name());
+        boolean hasQuantityFields = input.quantity() != null
+                || input.unit() != null && !input.unit().isBlank();
         if (input.quantityKnown()
                 && (input.quantity() == null || input.quantity().compareTo(BigDecimal.ZERO) <= 0
-                || input.unit() == null || input.unit().isBlank())) {
+                || !isSupportedUnit(input.unit()))) {
+            addUnique(conflicts, name + "数量无效");
+            return;
+        }
+        if (!input.quantityKnown() && hasQuantityFields) {
             addUnique(conflicts, name + "数量无效");
             return;
         }
         AvailableIngredientInput normalized = new AvailableIngredientInput(
                 name,
                 input.quantity(),
-                input.unit() == null ? null : input.unit().trim(),
+                input.quantityKnown() ? normalizeUnit(input.unit()) : null,
                 input.quantityKnown()
         );
         for (int index = 0; index < ingredients.size(); index++) {
@@ -209,6 +222,15 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             return;
         }
         ingredients.add(normalized);
+    }
+
+    private void removeRestrictedIngredients(
+            List<AvailableIngredientInput> ingredients,
+            List<String> excluded,
+            List<String> allergies
+    ) {
+        ingredients.removeIf(ingredient -> excluded.contains(ingredient.name())
+                || allergies.contains(ingredient.name()));
     }
 
     private boolean blockedByLocalConflict(
@@ -258,12 +280,12 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         return result;
     }
 
-    private Amount amountBefore(String text, int ingredientStart) {
+    private Amount amountBefore(String text, int ingredientStart, int lowerBound) {
         int start = ingredientStart;
-        while (start > 0 && !isSeparatorBefore(text, start - 1)) {
+        while (start > lowerBound && !isSeparatorBefore(text, start - 1)) {
             start--;
         }
-        Matcher matcher = AMOUNT.matcher(text.substring(start, ingredientStart).trim());
+        Matcher matcher = AMOUNT.matcher(text.substring(Math.max(start, lowerBound), ingredientStart).trim());
         if (!matcher.find()) {
             return null;
         }
@@ -288,6 +310,11 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     }
 
     private Integer extractTime(String text) {
+        Matcher mixed = MIXED_HOUR.matcher(text);
+        if (mixed.find()) {
+            String number = mixed.group(1) == null ? mixed.group(2) : mixed.group(1);
+            return parseNumber(number).multiply(BigDecimal.valueOf(60)).add(BigDecimal.valueOf(30)).intValue();
+        }
         if (text.contains("半小时") || text.contains("半时")) {
             return 30;
         }
@@ -472,7 +499,17 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             case "千克", "kg" -> "kg";
             case "毫升", "ml" -> "ml";
             case "个" -> "个";
-            default -> unit;
+            default -> "";
+        };
+    }
+
+    private boolean isSupportedUnit(String unit) {
+        if (unit == null || unit.isBlank()) {
+            return false;
+        }
+        return switch (unit.trim().toLowerCase(Locale.ROOT)) {
+            case "克", "g", "千克", "kg", "毫升", "ml", "个" -> true;
+            default -> false;
         };
     }
 
@@ -481,9 +518,9 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             return new BigDecimal(text);
         }
         Map<Character, Integer> digits = Map.ofEntries(
-                Map.entry('零', 0), Map.entry('一', 1), Map.entry('二', 2), Map.entry('两', 2),
-                Map.entry('三', 3), Map.entry('四', 4), Map.entry('五', 5), Map.entry('六', 6),
-                Map.entry('七', 7), Map.entry('八', 8), Map.entry('九', 9)
+                Map.entry('一', 1), Map.entry('二', 2), Map.entry('两', 2), Map.entry('三', 3),
+                Map.entry('四', 4), Map.entry('五', 5), Map.entry('六', 6), Map.entry('七', 7),
+                Map.entry('八', 8), Map.entry('九', 9)
         );
         if (text.equals("十")) {
             return BigDecimal.TEN;
@@ -495,12 +532,6 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
                 current = digits.get(character);
             } else if (character == '十') {
                 total += (current == 0 ? 1 : current) * 10;
-                current = 0;
-            } else if (character == '百') {
-                total += (current == 0 ? 1 : current) * 100;
-                current = 0;
-            } else if (character == '千') {
-                total += (current == 0 ? 1 : current) * 1000;
                 current = 0;
             }
         }

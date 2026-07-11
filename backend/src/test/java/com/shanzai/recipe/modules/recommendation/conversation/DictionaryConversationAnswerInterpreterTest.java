@@ -78,6 +78,7 @@ class DictionaryConversationAnswerInterpreterTest {
         assertTrue(allergy.restrictionsAnswered());
         assertEquals(List.of("香菜"), allergy.excludedIngredients());
         assertEquals(List.of("花生"), allergy.allergyIngredients());
+        assertTrue(allergy.availableIngredients().isEmpty());
     }
 
     @Test
@@ -149,5 +150,25 @@ class DictionaryConversationAnswerInterpreterTest {
         assertTrue(notAllergic.excludedIngredients().isEmpty());
         assertEquals(List.of("花生"), mixed.allergyIngredients());
         assertTrue(mixed.excludedIngredients().isEmpty());
+    }
+
+    @Test
+    void removesRestrictedFoodsFromAvailableIngredientsButKeepsOtherStock() {
+        ConversationAnswerAnalysis mixed = interpreter.interpret(
+                ConversationStage.INGREDIENTS,
+                "有鸡胸肉，花生过敏",
+                RecommendationConversationContext.empty());
+
+        assertEquals(List.of("鸡胸肉"),
+                mixed.availableIngredients().stream().map(AvailableIngredientInput::name).toList());
+        assertEquals(List.of("花生"), mixed.allergyIngredients());
+    }
+
+    @Test
+    void parsesMixedHourExpressionsAsNinetyMinutes() {
+        assertEquals(90, interpreter.interpret(
+                ConversationStage.CONTEXT, "一个半小时", RecommendationConversationContext.empty()).cookingTime());
+        assertEquals(90, interpreter.interpret(
+                ConversationStage.CONTEXT, "一小时半", RecommendationConversationContext.empty()).cookingTime());
     }
 }

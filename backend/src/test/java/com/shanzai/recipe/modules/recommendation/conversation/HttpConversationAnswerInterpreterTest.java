@@ -2,8 +2,13 @@ package com.shanzai.recipe.modules.recommendation.conversation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -12,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -163,6 +169,39 @@ class HttpConversationAnswerInterpreterTest {
         assertFallbackForResponse("{\"choices\":[{\"message\":{}}]}");
     }
 
+    @Test
+    void aiFalseCannotOverrideLocallyRecognizedIngredients() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiFalseResponse(), MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "300克鸡胸肉", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(analysis.relevant());
+        assertEquals(List.of("鸡胸肉"),
+                analysis.availableIngredients().stream().map(AvailableIngredientInput::name).toList());
+    }
+
+    @Test
+    void rejectsUnsupportedAiUnitsAndFalseQuantityKnownCombinations() {
+        assertInvalidAiIngredient(responseFor("紫甘蓝", "200", "minutes", "true", "[]", "[]"));
+        assertInvalidAiIngredient(responseFor("紫甘蓝", "-2", "g", "false", "[]", "[]"));
+    }
+
+    @Test
+    void resolvesConversationAnswerInterpreterToHttpPrimaryBean() {
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext(InterpreterBeanConfig.class)) {
+            ConversationAnswerInterpreter interpreter = context.getBean(ConversationAnswerInterpreter.class);
+
+            assertSame(HttpConversationAnswerInterpreter.class, interpreter.getClass());
+            assertEquals(2, context.getBeansOfType(ConversationAnswerInterpreter.class).size());
+        }
+    }
+
     private HttpConversationAnswerInterpreter newInterpreter(RestClient.Builder builder, String apiKey) {
         return new HttpConversationAnswerInterpreter(
                 builder,
@@ -219,6 +258,50 @@ class HttpConversationAnswerInterpreterTest {
                   }]
                 }
                 """;
+    }
+
+    private String aiFalseResponse() {
+        return """
+                {
+                  "choices": [{
+                    "message": {"content": "{\"relevant\":false,\"intentText\":null,\"dietGoal\":null,\"availableIngredients\":[],\"excludedIngredients\":[],\"allergyIngredients\":[],\"cookingTime\":null,\"servings\":null,\"unknownTerms\":[],\"conflicts\":[],\"confidence\":0.2,\"restrictionsAnswered\":false}"
+                    }
+                  }]
+                }
+                """;
+    }
+
+    private void assertInvalidAiIngredient(String response) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "紫甘蓝", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(analysis.availableIngredients().isEmpty());
+        assertTrue(analysis.conflicts().contains("紫甘蓝数量无效"));
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @Import({DictionaryConversationAnswerInterpreter.class, HttpConversationAnswerInterpreter.class})
+    static class InterpreterBeanConfig {
+        @Bean(name = "conversionService")
+        ApplicationConversionService conversionService() {
+            return new ApplicationConversionService();
+        }
+
+        @Bean
+        RestClient.Builder restClientBuilder() {
+            return RestClient.builder();
+        }
+
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
     }
 
     private String responseFor(

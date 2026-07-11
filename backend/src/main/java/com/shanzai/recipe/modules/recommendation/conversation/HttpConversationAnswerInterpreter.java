@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -20,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Component
+@Primary
 public class HttpConversationAnswerInterpreter implements ConversationAnswerInterpreter {
     private static final Logger log = LoggerFactory.getLogger(HttpConversationAnswerInterpreter.class);
     private static final List<String> REQUIRED_FIELDS = List.of(
@@ -34,6 +37,7 @@ public class HttpConversationAnswerInterpreter implements ConversationAnswerInte
     private final String model;
     private final DictionaryConversationAnswerInterpreter dictionary;
 
+    @Autowired
     public HttpConversationAnswerInterpreter(
             RestClient.Builder restClientBuilder,
             ObjectMapper objectMapper,
