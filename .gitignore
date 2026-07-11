@@ -11,6 +11,8 @@ frontend/.vite/
 frontend/.playwright-cli/
 frontend/*.tsbuildinfo
 
+uploads/
+
 .env
 .env.*
 !.env.example

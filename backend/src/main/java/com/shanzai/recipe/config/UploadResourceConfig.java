@@ -19,6 +19,11 @@ public class UploadResourceConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry
                 .addResourceHandler("/uploads/avatars/**")
-                .addResourceLocations(avatarRoot.toUri().toString());
+                .addResourceLocations(toDirectoryResourceLocation(avatarRoot));
+    }
+
+    static String toDirectoryResourceLocation(Path directory) {
+        String location = directory.toAbsolutePath().normalize().toUri().toString();
+        return location.endsWith("/") ? location : location + "/";
     }
 }
