@@ -52,4 +52,14 @@ describe('recommendation conversation experience', () => {
     expect(composerSource).toContain('combinedContent')
     expect(composerSource).not.toContain('submit(option)')
   })
+
+  it('lets users manually edit recognized recommendation conditions from the summary card', () => {
+    expect(summarySource).toContain('editing')
+    expect(summarySource).toContain('draft')
+    expect(summarySource).toContain('saveConditions')
+    expect(summarySource).toContain('cancelEdit')
+    expect(summarySource).toContain('condition-editor')
+    expect(recommendSource).toContain('patchConversationContext')
+    expect(recommendSource).toContain('saveConditions')
+  })
 })

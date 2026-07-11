@@ -15,7 +15,8 @@ public record ConversationAnswerAnalysis(
         List<String> unknownTerms,
         List<String> conflicts,
         BigDecimal confidence,
-        boolean restrictionsAnswered
+        boolean restrictionsAnswered,
+        boolean clearRestrictions
 ) {
     public ConversationAnswerAnalysis {
         availableIngredients = immutableList(availableIngredients);
@@ -39,7 +40,7 @@ public record ConversationAnswerAnalysis(
             BigDecimal confidence
     ) {
         this(relevant, intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
-                cookingTime, servings, unknownTerms, conflicts, confidence, false);
+                cookingTime, servings, unknownTerms, conflicts, confidence, false, false);
     }
 
     public ConversationAnswerAnalysis(
@@ -57,13 +58,50 @@ public record ConversationAnswerAnalysis(
             BigDecimal confidence
     ) {
         this(relevant, intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
-                cookingTime, servings, unknownTerms, conflicts, confidence, restrictionsAnswered);
+                cookingTime, servings, unknownTerms, conflicts, confidence, restrictionsAnswered, false);
+    }
+
+    public ConversationAnswerAnalysis(
+            boolean relevant,
+            String intentText,
+            String dietGoal,
+            List<AvailableIngredientInput> availableIngredients,
+            List<String> excludedIngredients,
+            List<String> allergyIngredients,
+            Integer cookingTime,
+            Integer servings,
+            List<String> unknownTerms,
+            List<String> conflicts,
+            BigDecimal confidence,
+            boolean restrictionsAnswered
+    ) {
+        this(relevant, intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
+                cookingTime, servings, unknownTerms, conflicts, confidence, restrictionsAnswered, false);
+    }
+
+    public ConversationAnswerAnalysis(
+            boolean relevant,
+            String intentText,
+            String dietGoal,
+            List<AvailableIngredientInput> availableIngredients,
+            List<String> excludedIngredients,
+            List<String> allergyIngredients,
+            Integer cookingTime,
+            Integer servings,
+            List<String> unknownTerms,
+            List<String> conflicts,
+            boolean restrictionsAnswered,
+            boolean clearRestrictions,
+            BigDecimal confidence
+    ) {
+        this(relevant, intentText, dietGoal, availableIngredients, excludedIngredients, allergyIngredients,
+                cookingTime, servings, unknownTerms, conflicts, confidence, restrictionsAnswered, clearRestrictions);
     }
 
     public static ConversationAnswerAnalysis invalid() {
         return new ConversationAnswerAnalysis(
                 false, null, null, List.of(), List.of(), List.of(),
-                null, null, List.of(), List.of(), BigDecimal.ZERO, false
+                null, null, List.of(), List.of(), BigDecimal.ZERO, false, false
         );
     }
 

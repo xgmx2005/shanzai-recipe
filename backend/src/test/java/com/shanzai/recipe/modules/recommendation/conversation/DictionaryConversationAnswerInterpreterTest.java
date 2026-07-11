@@ -197,6 +197,34 @@ class DictionaryConversationAnswerInterpreterTest {
     }
 
     @Test
+    void explicitNoRestrictionClearsExistingRestrictionsInContext() {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                "BALANCED",
+                List.of(new AvailableIngredientInput("鸡蛋", new BigDecimal("2"), "个", true)),
+                List.of("辣"),
+                List.of("花生"),
+                30,
+                1,
+                List.of(),
+                List.of(),
+                true
+        );
+
+        ConversationAnswerAnalysis analysis = interpreter.interpret(
+                ConversationStage.RESTRICTIONS,
+                "没有忌口，也不过敏",
+                context
+        );
+        RecommendationConversationContext merged = context.merge(analysis);
+
+        assertTrue(analysis.clearRestrictions());
+        assertTrue(merged.excludedIngredients().isEmpty());
+        assertTrue(merged.allergyIngredients().isEmpty());
+        assertTrue(merged.restrictionsConfirmed());
+    }
+
+    @Test
     void removesRestrictedFoodsFromAvailableIngredientsButKeepsOtherStock() {
         ConversationAnswerAnalysis mixed = interpreter.interpret(
                 ConversationStage.INGREDIENTS,

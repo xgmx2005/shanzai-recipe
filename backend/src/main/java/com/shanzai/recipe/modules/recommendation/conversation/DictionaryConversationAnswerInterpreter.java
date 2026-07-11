@@ -104,9 +104,11 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             }
         }
 
-        boolean restrictionsAnswered = NO_RESTRICTION.matcher(text).find()
+        boolean explicitNoRestriction = NO_RESTRICTION.matcher(text).find();
+        boolean restrictionsAnswered = explicitNoRestriction
                 || specificRestrictions.preference()
                 || !excluded.isEmpty() || !allergies.isEmpty();
+        boolean clearRestrictions = explicitNoRestriction && excluded.isEmpty() && allergies.isEmpty();
         removeRestrictedIngredients(ingredients, excluded, allergies);
         Integer cookingTime = extractTime(text);
         Integer servings = extractServings(text);
@@ -126,7 +128,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         return new ConversationAnswerAnalysis(
                 true, intentText, dietGoal, ingredients, excluded, allergies,
                 cookingTime, servings, remainingUnknown, remainingConflicts,
-                confidence, restrictionsAnswered
+                restrictionsAnswered, clearRestrictions, confidence
         );
     }
 
@@ -169,6 +171,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         boolean restrictionsAnswered = (localRelevant && local.restrictionsAnswered())
                 || (candidate.restrictionsAnswered() && (!excluded.isEmpty() || !allergies.isEmpty()))
                 || aiExplicitNoRestriction;
+        boolean clearRestrictions = localRelevant && local.clearRestrictions() || aiExplicitNoRestriction;
 
         List<String> unknown = new ArrayList<>(candidate.unknownTerms());
         addUniqueAll(unknown, localRelevant ? local.unknownTerms() : List.of());
@@ -202,7 +205,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
                 hasText(candidate.intentText()) ? candidate.intentText() : localRelevant ? local.intentText() : null,
                 hasText(candidate.dietGoal()) ? candidate.dietGoal() : localRelevant ? local.dietGoal() : null,
                 ingredients, excluded, allergies, time, people, unknown, conflicts,
-                candidate.confidence(), restrictionsAnswered
+                restrictionsAnswered, clearRestrictions, candidate.confidence()
         );
     }
 

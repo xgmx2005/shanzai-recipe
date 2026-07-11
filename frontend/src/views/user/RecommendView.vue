@@ -7,6 +7,7 @@ import {
   confirmConversation,
   getActiveConversation,
   getConversation,
+  patchConversationContext,
   sendConversationMessage,
   startConversation,
 } from '@/api/recommendation'
@@ -14,7 +15,7 @@ import RecommendationComposer from '@/components/recommendation/RecommendationCo
 import RecommendationConditionSummary from '@/components/recommendation/RecommendationConditionSummary.vue'
 import RecommendationMessageList from '@/components/recommendation/RecommendationMessageList.vue'
 import { useAuthStore } from '@/stores/auth'
-import type { ConversationMessage, ConversationResponse } from '@/types'
+import type { ConversationContextPatchRequest, ConversationMessage, ConversationResponse } from '@/types'
 import { recommendationResultRoute } from '@/utils/recommendationConversation'
 
 const route = useRoute()
@@ -25,6 +26,7 @@ const auth = useAuthStore()
 const loading = ref(true)
 const sending = ref(false)
 const confirming = ref(false)
+const savingConditions = ref(false)
 const error = ref('')
 const conversation = ref<ConversationResponse | null>(null)
 const resumableConversation = ref<ConversationResponse | null>(null)
@@ -214,8 +216,19 @@ async function confirm() {
   }
 }
 
-function editConditions() {
-  message.info('直接在下方继续补充或修正条件，膳哉会重新整理。')
+async function saveConditions(payload: ConversationContextPatchRequest) {
+  if (!conversation.value || savingConditions.value) return
+  savingConditions.value = true
+  error.value = ''
+  try {
+    conversation.value = await patchConversationContext(conversation.value.id, payload)
+    message.success('条件已更新')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '条件保存失败'
+    message.error(error.value)
+  } finally {
+    savingConditions.value = false
+  }
 }
 
 onMounted(initialize)
@@ -293,8 +306,9 @@ onMounted(initialize)
             :status="conversation.status"
             :show-confirmation="conversation.showConfirmation"
             :confirming="confirming"
+            :saving="savingConditions"
             @confirm="confirm"
-            @edit="editConditions"
+            @save="saveConditions"
           />
         </div>
       </template>
