@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronDown, Home, ListChecks, Sparkles } from '@lucide/vue'
+import { ChevronDown, Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -15,13 +15,13 @@ const navItems = [
 ]
 
 const accountMenuItems = [
-  { label: '健康档案', key: '/user/profile' },
-  { label: '收藏菜谱', key: '/user/favorites' },
-  { label: '推荐历史', key: '/user/history' },
-  { type: 'divider', key: 'divider' },
-  { label: '退出登录', key: 'logout' },
+  { label: '健康档案', to: '/user/profile', icon: UserRound },
+  { label: '收藏菜谱', to: '/user/favorites', icon: Heart },
+  { label: '推荐历史', to: '/user/history', icon: Clock },
 ]
 
+const accountMenuOpen = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
 const nickname = computed(() => auth.user?.nickname ?? '小膳用户')
 const avatarText = computed(() => nickname.value.slice(0, 1))
 const isHomePage = computed(() => route.name === 'user-home')
@@ -31,13 +31,25 @@ function logout() {
   router.push('/login')
 }
 
-function handleAccountSelect(key: string) {
-  if (key === 'logout') {
-    logout()
-    return
-  }
-  router.push(key)
+function toggleAccountMenu() {
+  accountMenuOpen.value = !accountMenuOpen.value
 }
+
+function openAccountPage(to: string) {
+  accountMenuOpen.value = false
+  router.push(to)
+}
+
+function handleDocumentClick(event: MouseEvent) {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (!userMenuRef.value?.contains(target)) {
+    accountMenuOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleDocumentClick))
+onBeforeUnmount(() => document.removeEventListener('click', handleDocumentClick))
 </script>
 
 <template>
@@ -53,16 +65,41 @@ function handleAccountSelect(key: string) {
           <span>{{ item.label }}</span>
         </router-link>
       </nav>
-      <n-dropdown trigger="click" :options="accountMenuItems" @select="handleAccountSelect">
-        <button type="button" class="user-menu" aria-label="打开用户菜单">
-          <span class="avatar" aria-hidden="true">{{ avatarText }}</span>
-          <span class="user-copy">
-            <span>{{ nickname }}</span>
-            <small>日常健康</small>
-          </span>
-          <ChevronDown class="chevron" />
+      <div class="user-actions">
+        <div ref="userMenuRef" class="user-menu-wrap">
+          <button
+            type="button"
+            class="user-menu"
+            aria-label="打开用户菜单"
+            :aria-expanded="accountMenuOpen"
+            @click="toggleAccountMenu"
+          >
+            <span class="avatar" aria-hidden="true">{{ avatarText }}</span>
+            <span class="user-copy">
+              <span>{{ nickname }}</span>
+              <small>日常健康</small>
+            </span>
+            <ChevronDown class="chevron" :class="{ open: accountMenuOpen }" />
+          </button>
+
+          <div v-if="accountMenuOpen" class="account-dropdown" role="menu">
+            <button
+              v-for="item in accountMenuItems"
+              :key="item.to"
+              type="button"
+              role="menuitem"
+              @click="openAccountPage(item.to)"
+            >
+              <component :is="item.icon" />
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="logout-button" aria-label="退出登录" title="退出登录" @click="logout">
+          <LogOut />
         </button>
-      </n-dropdown>
+      </div>
     </header>
     <main class="sz-page page-content" :class="{ 'is-home-page': isHomePage }">
       <router-view />
@@ -154,6 +191,16 @@ nav a.router-link-active::after {
   content: '';
 }
 
+.user-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-menu-wrap {
+  position: relative;
+}
+
 .user-menu {
   display: inline-flex;
   align-items: center;
@@ -205,6 +252,72 @@ nav a.router-link-active::after {
   width: 15px;
   height: 15px;
   color: var(--sz-muted);
+  transition: transform 0.18s ease;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.account-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+  min-width: 168px;
+  padding: 8px;
+  border: 1px solid rgba(223, 210, 191, 0.92);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.98);
+  box-shadow: 0 18px 36px rgba(23, 37, 31, 0.14);
+}
+
+.account-dropdown button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--sz-text);
+  background: transparent;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-dropdown button:hover {
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+}
+
+.account-dropdown svg,
+.logout-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.logout-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--sz-muted);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+
+.logout-button:hover {
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
 }
 
 .page-content {
@@ -237,7 +350,7 @@ nav a.router-link-active::after {
     grid-row: 1;
   }
 
-  .user-menu {
+  .user-actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
