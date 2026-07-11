@@ -11,4 +11,13 @@ describe('RecommendationResultView', () => {
     expect(source).toContain('shoppingListRoute')
     expect(source).toContain('暂无符合过敏和忌口约束的安全推荐')
   })
+
+  it('reveals generated result sections in staged order after navigation', () => {
+    const source = readFileSync(fileURLToPath(new URL('./RecommendationResultView.vue', import.meta.url)), 'utf8')
+    expect(source).toContain('result-enter-shell')
+    expect(source).toContain('result-reveal')
+    expect(source).toContain('--reveal-index')
+    expect(source).toContain('@keyframes result-reveal')
+    expect(source).toContain('prefers-reduced-motion')
+  })
 })

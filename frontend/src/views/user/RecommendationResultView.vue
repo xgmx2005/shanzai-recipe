@@ -121,8 +121,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="result-view">
-    <section class="result-heading">
+  <div class="result-view result-enter-shell">
+    <section class="result-heading result-reveal" style="--reveal-index: 0">
       <div>
         <button type="button" class="back-button" @click="router.push('/user/recommend')">
           <ArrowLeft :size="16" />
@@ -134,11 +134,13 @@ onMounted(load)
       <p>这里保留本次 AI 讲解、输入条件和知识库菜谱结果，后续可继续进入详情或生成购物清单。</p>
     </section>
 
-    <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
-    <n-skeleton v-if="loading" text :repeat="5" />
+    <n-alert v-if="error" class="result-reveal" style="--reveal-index: 1" type="error" :bordered="false">
+      {{ error }}
+    </n-alert>
+    <n-skeleton v-if="loading" class="result-reveal" style="--reveal-index: 1" text :repeat="5" />
 
     <template v-else-if="detail">
-      <section class="result-summary sz-panel">
+      <section class="result-summary sz-panel result-reveal" style="--reveal-index: 1">
         <div class="summary-main">
           <p class="sz-chip is-warm"><Sparkles :size="15" /> {{ detail.aiGenerated ? 'AI 推荐讲解' : '规则推荐讲解' }}</p>
           <h2>{{ goalLabels[detail.dietGoal] }}</h2>
@@ -178,7 +180,7 @@ onMounted(load)
         </aside>
       </section>
 
-      <section class="condition-strip">
+      <section class="condition-strip result-reveal" style="--reveal-index: 2">
         <article>
           <span>已有食材</span>
           <div>
@@ -199,7 +201,7 @@ onMounted(load)
         </article>
       </section>
 
-      <section class="toolbar sz-panel">
+      <section class="toolbar sz-panel result-reveal" style="--reveal-index: 3">
         <div>
           <h2>推荐菜谱</h2>
           <span>结果来自知识库菜谱，AI 只负责解释和排序，不凭空生成新菜。</span>
@@ -210,7 +212,7 @@ onMounted(load)
         </button>
       </section>
 
-      <section v-if="recipes.length" class="recipe-list">
+      <section v-if="recipes.length" class="recipe-list result-reveal" style="--reveal-index: 4">
         <RecipeRecommendationCard
           v-for="recipe in recipes"
           :key="recipe.id"
@@ -224,7 +226,7 @@ onMounted(load)
         />
       </section>
 
-      <section v-else class="empty-safe sz-panel">
+      <section v-else class="empty-safe sz-panel result-reveal" style="--reveal-index: 4">
         <Sparkles :size="26" />
         <strong>暂无符合过敏和忌口约束的安全推荐</strong>
         <span>可以修改条件、减少排除食材，或补充更多可用食材后重新生成。</span>
@@ -238,7 +240,7 @@ onMounted(load)
       </section>
     </template>
 
-    <section v-else class="empty-safe sz-panel">
+    <section v-else class="empty-safe sz-panel result-reveal" style="--reveal-index: 1">
       <Sparkles :size="26" />
       <strong>没有找到推荐结果</strong>
       <span>请从智能推荐页重新生成一次，或在推荐历史中选择记录。</span>
@@ -257,6 +259,25 @@ onMounted(load)
 .result-view {
   display: grid;
   gap: 20px;
+}
+
+.result-enter-shell {
+  --result-reveal-distance: 14px;
+}
+
+.result-reveal {
+  opacity: 0;
+  transform: translateY(var(--result-reveal-distance));
+  animation: result-reveal 460ms cubic-bezier(0.2, 0.9, 0.18, 1) forwards;
+  animation-delay: calc(var(--reveal-index, 0) * 70ms);
+  will-change: opacity, transform;
+}
+
+@keyframes result-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 h1,
@@ -529,6 +550,14 @@ p {
 
   .toolbar button {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-reveal {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 }
 </style>
