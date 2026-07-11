@@ -1,7 +1,10 @@
 package com.shanzai.recipe.modules.recommendation.conversation;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public record ConversationMessageRequest(
-        String clientMessageId,
-        String content
+        @NotBlank @Size(max = 1000) String content,
+        @NotBlank @Size(max = 64) String clientMessageId
 ) {
 }

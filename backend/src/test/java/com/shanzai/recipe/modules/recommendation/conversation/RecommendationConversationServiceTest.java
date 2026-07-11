@@ -3,6 +3,10 @@ package com.shanzai.recipe.modules.recommendation.conversation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shanzai.recipe.common.BusinessException;
 import com.shanzai.recipe.modules.profile.ProfileEntity;
+import com.shanzai.recipe.modules.recommendation.RecommendationHistoryService;
+import com.shanzai.recipe.modules.recommendation.RecommendationRequest;
+import com.shanzai.recipe.modules.recommendation.RecommendationResponse;
+import com.shanzai.recipe.modules.recommendation.RecommendationService;
 import com.shanzai.recipe.modules.profile.ProfileMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,9 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +46,8 @@ class RecommendationConversationServiceTest {
     private RecommendationConversationMessageMapper messageMapper;
     private ConversationAnswerInterpreter interpreter;
     private ProfileMapper profileMapper;
+    private RecommendationService recommendationService;
+    private RecommendationHistoryService historyService;
     private RecordingTransactionManager transactionManager;
     private RecommendationConversationService service;
 
@@ -49,6 +57,8 @@ class RecommendationConversationServiceTest {
         messageMapper = mock(RecommendationConversationMessageMapper.class);
         interpreter = mock(ConversationAnswerInterpreter.class);
         profileMapper = mock(ProfileMapper.class);
+        recommendationService = mock(RecommendationService.class);
+        historyService = mock(RecommendationHistoryService.class);
         transactionManager = new RecordingTransactionManager();
         service = new RecommendationConversationService(
                 conversationMapper,
@@ -57,7 +67,9 @@ class RecommendationConversationServiceTest {
                 new ConversationFlow(),
                 profileMapper,
                 new ObjectMapper(),
-                new TransactionTemplate(transactionManager)
+                new TransactionTemplate(transactionManager),
+                recommendationService,
+                historyService
         );
     }
 
@@ -142,7 +154,7 @@ class RecommendationConversationServiceTest {
                 userMessage(1L, 10L, "message-001", "USER", "鸡胸肉")
         ));
 
-        ConversationMessageRequest request = new ConversationMessageRequest("message-001", "鸡胸肉");
+        ConversationMessageRequest request = new ConversationMessageRequest("鸡胸肉", "message-001");
 
         ConversationResponse first = service.sendMessage(7L, 10L, request);
         ConversationResponse second = service.sendMessage(7L, 10L, request);
@@ -168,7 +180,7 @@ class RecommendationConversationServiceTest {
         ConversationResponse response = service.sendMessage(
                 7L,
                 10L,
-                new ConversationMessageRequest("message-001", "鸡胸肉")
+                new ConversationMessageRequest("鸡胸肉", "message-001")
         );
 
         assertEquals(1, response.messages().size());
@@ -195,7 +207,7 @@ class RecommendationConversationServiceTest {
                 assistantMessage(2L, 10L, "请继续补充")
         ));
 
-        service.sendMessage(7L, 10L, new ConversationMessageRequest("message-001", "鸡胸肉"));
+        service.sendMessage(7L, 10L, new ConversationMessageRequest("鸡胸肉", "message-001"));
 
         ArgumentCaptor<RecommendationConversationEntity> captor =
                 ArgumentCaptor.forClass(RecommendationConversationEntity.class);
@@ -219,7 +231,7 @@ class RecommendationConversationServiceTest {
                 assistantMessage(2L, 10L, "请继续补充")
         ));
 
-        service.sendMessage(7L, 10L, new ConversationMessageRequest("message-001", "鸡胸肉"));
+        service.sendMessage(7L, 10L, new ConversationMessageRequest("鸡胸肉", "message-001"));
 
         assertEquals(1, transactionManager.beginCount());
         assertEquals(1, transactionManager.commitCount());
@@ -279,6 +291,71 @@ class RecommendationConversationServiceTest {
         assertNotNull(response.quickOptions());
     }
 
+    @Test
+    void confirmRejectsConversationThatIsNotReadyToConfirm() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.confirm(7L, 10L));
+
+        assertEquals("推荐条件尚未确认完整", exception.getMessage());
+        verifyNoInteractions(recommendationService, historyService);
+    }
+
+    @Test
+    void confirmBuildsRecommendationRequestFromContextAndCompletesConversation() throws Exception {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                "FAT_LOSS",
+                List.of(new AvailableIngredientInput("鸡胸肉", new BigDecimal("300"), "g", true)),
+                List.of("辣椒"),
+                List.of("花生"),
+                30,
+                2,
+                List.of(),
+                List.of(),
+                true
+        );
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setStage(ConversationStage.CONFIRM.name());
+        conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
+        conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
+        when(recommendationService.recommend(any(), any())).thenReturn(expected);
+
+        RecommendationResponse response = service.confirm(7L, 10L);
+
+        assertSame(expected, response);
+        ArgumentCaptor<RecommendationRequest> requestCaptor = ArgumentCaptor.forClass(RecommendationRequest.class);
+        verify(recommendationService).recommend(eq(7L), requestCaptor.capture());
+        RecommendationRequest request = requestCaptor.getValue();
+        assertEquals(List.of("鸡胸肉"), request.availableIngredients());
+        assertEquals(List.of("辣椒", "花生"), request.excludedIngredients());
+        assertEquals(30, request.cookingTime());
+        assertEquals(2, request.servings());
+        verify(historyService).attachConversationContext(7L, 99L, context);
+        assertEquals(ConversationStatus.COMPLETED.name(), conversation.getStatus());
+        assertEquals(99L, conversation.getRecommendationHistoryId());
+        verify(conversationMapper).updateById(conversation);
+    }
+
+    @Test
+    void confirmCompletedConversationReturnsExistingRecommendationWithoutCreatingAnotherHistory() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setStatus(ConversationStatus.COMPLETED.name());
+        conversation.setRecommendationHistoryId(99L);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
+        when(historyService.getRecommendationResponse(7L, 99L)).thenReturn(expected);
+
+        RecommendationResponse response = service.confirm(7L, 10L);
+
+        assertSame(expected, response);
+        verify(historyService).getRecommendationResponse(7L, 99L);
+        verifyNoInteractions(recommendationService);
+    }
     private RecommendationConversationEntity activeConversation(Long id, Long userId) {
         RecommendationConversationEntity entity = new RecommendationConversationEntity();
         entity.setId(id);

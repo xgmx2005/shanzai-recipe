@@ -13,6 +13,7 @@ public class RecommendationHistoryEntity {
     private Long userId;
     private String inputIngredients;
     private String excludedIngredients;
+    private String conversationContextJson;
     private String dietGoal;
     private Integer cookingTime;
     private Integer servings;
@@ -53,6 +54,14 @@ public class RecommendationHistoryEntity {
 
     public void setExcludedIngredients(String excludedIngredients) {
         this.excludedIngredients = excludedIngredients;
+    }
+
+    public String getConversationContextJson() {
+        return conversationContextJson;
+    }
+
+    public void setConversationContextJson(String conversationContextJson) {
+        this.conversationContextJson = conversationContextJson;
     }
 
     public String getDietGoal() {

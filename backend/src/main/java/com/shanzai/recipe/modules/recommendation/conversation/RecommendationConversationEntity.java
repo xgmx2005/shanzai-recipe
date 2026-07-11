@@ -15,6 +15,7 @@ public class RecommendationConversationEntity {
     private String status;
     private Integer invalidAnswerCount;
     private String contextJson;
+    private Long recommendationHistoryId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -64,6 +65,14 @@ public class RecommendationConversationEntity {
 
     public void setContextJson(String contextJson) {
         this.contextJson = contextJson;
+    }
+
+    public Long getRecommendationHistoryId() {
+        return recommendationHistoryId;
+    }
+
+    public void setRecommendationHistoryId(Long recommendationHistoryId) {
+        this.recommendationHistoryId = recommendationHistoryId;
     }
 
     public LocalDateTime getCreatedAt() {

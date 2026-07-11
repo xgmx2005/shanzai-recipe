@@ -6,6 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shanzai.recipe.common.BusinessException;
 import com.shanzai.recipe.modules.profile.ProfileEntity;
 import com.shanzai.recipe.modules.profile.ProfileMapper;
+import com.shanzai.recipe.modules.recommendation.RecommendationHistoryService;
+import com.shanzai.recipe.modules.recommendation.RecommendationRequest;
+import com.shanzai.recipe.modules.recommendation.RecommendationResponse;
+import com.shanzai.recipe.modules.recommendation.RecommendationService;
+import com.shanzai.recipe.common.DietGoal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DuplicateKeyException;
@@ -32,6 +37,8 @@ public class RecommendationConversationService {
     private final ProfileMapper profileMapper;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final RecommendationService recommendationService;
+    private final RecommendationHistoryService historyService;
     private final Map<Long, Object> conversationLocks = new ConcurrentHashMap<>();
 
     public RecommendationConversationService(
@@ -41,7 +48,9 @@ public class RecommendationConversationService {
             ConversationFlow flow,
             ProfileMapper profileMapper,
             ObjectMapper objectMapper,
-            TransactionTemplate transactionTemplate
+            TransactionTemplate transactionTemplate,
+            RecommendationService recommendationService,
+            RecommendationHistoryService historyService
     ) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
@@ -50,6 +59,8 @@ public class RecommendationConversationService {
         this.profileMapper = profileMapper;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+        this.recommendationService = recommendationService;
+        this.historyService = historyService;
     }
 
     public Optional<RecommendationConversationEntity> findActiveConversation(Long userId) {
@@ -61,6 +72,10 @@ public class RecommendationConversationService {
                 .stream()
                 .max(Comparator.comparing(RecommendationConversationEntity::getUpdatedAt,
                         Comparator.nullsLast(Comparator.naturalOrder())));
+    }
+
+    public Optional<ConversationResponse> getActiveConversation(Long userId) {
+        return findActiveConversation(userId).map(conversation -> getConversation(userId, conversation.getId()));
     }
 
     @Transactional
@@ -201,6 +216,60 @@ public class RecommendationConversationService {
         );
     }
 
+
+    @Transactional
+    public ConversationResponse patchContext(Long userId, Long conversationId, ConversationContextPatchRequest request) {
+        RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
+        if (ConversationStatus.COMPLETED.name().equals(conversation.getStatus())
+                || ConversationStatus.CANCELLED.name().equals(conversation.getStatus())) {
+            throw new BusinessException("推荐对话不存在");
+        }
+        RecommendationConversationContext current = readContext(conversation.getContextJson());
+        RecommendationConversationContext patched = new RecommendationConversationContext(
+                patchText(request.intentText(), current.intentText()),
+                patchText(request.dietGoal(), current.dietGoal()),
+                request.availableIngredients() == null ? current.availableIngredients() : request.availableIngredients(),
+                request.excludedIngredients() == null ? current.excludedIngredients() : request.excludedIngredients(),
+                request.allergyIngredients() == null ? current.allergyIngredients() : request.allergyIngredients(),
+                request.cookingTime() == null ? current.cookingTime() : request.cookingTime(),
+                request.servings() == null ? current.servings() : request.servings(),
+                List.of(),
+                List.of(),
+                request.excludedIngredients() != null || request.allergyIngredients() != null || current.restrictionsConfirmed()
+        );
+        ConversationStage nextStage = flow.firstMissingStage(patched);
+        boolean hasConflict = !patched.conflicts().isEmpty() || !patched.unknownTerms().isEmpty();
+        conversation.setStage(nextStage.name());
+        conversation.setStatus(nextStage == ConversationStage.CONFIRM && !hasConflict
+                ? ConversationStatus.READY_TO_CONFIRM.name()
+                : ConversationStatus.ACTIVE.name());
+        conversation.setInvalidAnswerCount(0);
+        conversation.setContextJson(writeContext(patched));
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationMapper.updateById(conversation);
+        return getConversation(userId, conversationId);
+    }
+
+    @Transactional
+    public RecommendationResponse confirm(Long userId, Long conversationId) {
+        RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
+        ConversationStatus status = ConversationStatus.valueOf(conversation.getStatus());
+        if (status == ConversationStatus.COMPLETED) {
+            return historyService.getRecommendationResponse(userId, conversation.getRecommendationHistoryId());
+        }
+        if (status != ConversationStatus.READY_TO_CONFIRM) {
+            throw new BusinessException("推荐条件尚未确认完整");
+        }
+
+        RecommendationConversationContext context = readContext(conversation.getContextJson());
+        RecommendationResponse response = recommendationService.recommend(userId, toRecommendationRequest(context));
+        historyService.attachConversationContext(userId, response.historyId(), context);
+        conversation.setStatus(ConversationStatus.COMPLETED.name());
+        conversation.setRecommendationHistoryId(response.historyId());
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationMapper.updateById(conversation);
+        return response;
+    }
     private RecommendationConversationEntity requireConversation(Long userId, Long conversationId) {
         RecommendationConversationEntity conversation = conversationMapper.selectById(conversationId);
         if (conversation == null || !Objects.equals(userId, conversation.getUserId())) {
@@ -209,6 +278,44 @@ public class RecommendationConversationService {
         return conversation;
     }
 
+
+    private RecommendationRequest toRecommendationRequest(RecommendationConversationContext context) {
+        List<String> availableIngredients = context.availableIngredients().stream()
+                .map(AvailableIngredientInput::name)
+                .filter(name -> !isBlank(name))
+                .map(String::trim)
+                .distinct()
+                .toList();
+        List<String> excludedIngredients = java.util.stream.Stream.concat(
+                        context.excludedIngredients().stream(),
+                        context.allergyIngredients().stream())
+                .filter(value -> !isBlank(value))
+                .map(String::trim)
+                .distinct()
+                .toList();
+        return new RecommendationRequest(
+                availableIngredients,
+                excludedIngredients,
+                parseDietGoal(context.dietGoal()),
+                context.cookingTime(),
+                context.servings()
+        );
+    }
+
+    private DietGoal parseDietGoal(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        try {
+            return DietGoal.valueOf(value.trim());
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private String patchText(String next, String previous) {
+        return next == null ? previous : cleanText(next);
+    }
     private RecommendationConversationContext initialContext(Long userId) {
         ProfileEntity profile = profileMapper.selectOne(
                 new LambdaQueryWrapper<ProfileEntity>().eq(ProfileEntity::getUserId, userId));
