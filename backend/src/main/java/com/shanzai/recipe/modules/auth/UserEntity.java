@@ -14,6 +14,7 @@ public class UserEntity {
     private String passwordHash;
     private String nickname;
     private String avatarTheme;
+    private String avatarUrl;
     private String role;
     private Integer status;
     private LocalDateTime createdAt;
@@ -57,6 +58,14 @@ public class UserEntity {
 
     public void setAvatarTheme(String avatarTheme) {
         this.avatarTheme = avatarTheme;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     public String getRole() {

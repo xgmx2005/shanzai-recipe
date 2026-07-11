@@ -7,6 +7,7 @@ import com.shanzai.recipe.security.JwtTokenProvider;
 import com.shanzai.recipe.security.JwtUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,7 +21,8 @@ class AuthServiceTest {
     private final UserMapper userMapper = mock(UserMapper.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
-    private final AuthService authService = new AuthService(userMapper, passwordEncoder, jwtTokenProvider);
+    private final AvatarStorageService avatarStorageService = mock(AvatarStorageService.class);
+    private final AuthService authService = new AuthService(userMapper, passwordEncoder, jwtTokenProvider, avatarStorageService);
 
     @Test
     void updateCurrentUserChangesUsernameAndNickname() {
@@ -36,6 +38,24 @@ class AuthServiceTest {
         assertEquals("newUser", updated.username());
         assertEquals("新的昵称", updated.nickname());
         assertEquals("tomato", updated.avatarTheme());
+        assertEquals("", updated.avatarUrl());
+        verify(userMapper).updateById(existing);
+    }
+
+    @Test
+    void uploadAvatarStoresFileAndUpdatesCurrentUser() {
+        UserEntity existing = user(1L, "user1", "体验用户");
+        MultipartFile file = mock(MultipartFile.class);
+        when(userMapper.selectById(1L)).thenReturn(existing);
+        when(avatarStorageService.store(1L, file)).thenReturn("/uploads/avatars/user-1/avatar.webp");
+
+        UserInfoResponse updated = authService.uploadAvatar(
+                new JwtUser(1L, "user1", Role.USER.name()),
+                file
+        );
+
+        assertEquals("/uploads/avatars/user-1/avatar.webp", updated.avatarUrl());
+        assertEquals("/uploads/avatars/user-1/avatar.webp", existing.getAvatarUrl());
         verify(userMapper).updateById(existing);
     }
 
@@ -58,6 +78,7 @@ class AuthServiceTest {
         user.setUsername(username);
         user.setNickname(nickname);
         user.setAvatarTheme("leaf");
+        user.setAvatarUrl("");
         user.setRole(Role.USER.name());
         user.setStatus(1);
         return user;

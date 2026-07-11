@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown, Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
+import { backendAssetUrl } from '@/api/http'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,6 +26,7 @@ const userMenuRef = ref<HTMLElement | null>(null)
 const nickname = computed(() => auth.user?.nickname ?? '小膳用户')
 const avatarText = computed(() => nickname.value.slice(0, 1))
 const avatarThemeClass = computed(() => `theme-${auth.user?.avatarTheme ?? 'leaf'}`)
+const avatarUrl = computed(() => backendAssetUrl(auth.user?.avatarUrl))
 const isHomePage = computed(() => route.name === 'user-home')
 
 function logout() {
@@ -75,7 +77,10 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocumentClick)
             :aria-expanded="accountMenuOpen"
             @click="toggleAccountMenu"
           >
-            <span class="avatar" :class="avatarThemeClass" aria-hidden="true">{{ avatarText }}</span>
+            <span class="avatar" :class="avatarThemeClass" aria-hidden="true">
+              <img v-if="avatarUrl" :src="avatarUrl" alt="" />
+              <template v-else>{{ avatarText }}</template>
+            </span>
             <span class="user-copy">
               <span>{{ nickname }}</span>
               <small>日常健康</small>
@@ -225,6 +230,7 @@ nav a.router-link-active::after {
 }
 
 .avatar {
+  overflow: hidden;
   display: grid;
   place-items: center;
   width: 38px;
@@ -235,6 +241,12 @@ nav a.router-link-active::after {
   background: linear-gradient(135deg, var(--sz-green-dark), var(--sz-grain));
   box-shadow: 0 7px 16px rgba(23, 37, 31, 0.14);
   font-size: 15px;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar.theme-leaf {

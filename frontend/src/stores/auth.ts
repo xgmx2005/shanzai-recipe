@@ -1,5 +1,11 @@
 import { defineStore } from 'pinia'
-import { getCurrentUser, login as loginApi, register as registerApi, updateCurrentUser } from '@/api/auth'
+import {
+  getCurrentUser,
+  login as loginApi,
+  register as registerApi,
+  updateCurrentUser,
+  uploadCurrentUserAvatar,
+} from '@/api/auth'
 import { AUTH_STORAGE_KEY } from '@/api/http'
 import { getProfile, saveProfile as saveProfileApi } from '@/api/profile'
 import type { AuthSession, AuthUser, Profile, ProfileRequest, UserRole } from '@/types'
@@ -17,6 +23,7 @@ const defaultProfile: Profile = {
 }
 
 const DEFAULT_AVATAR_THEME = 'leaf'
+const DEFAULT_AVATAR_URL = ''
 
 interface AuthState {
   token: string | null
@@ -38,6 +45,7 @@ function readStoredAuth(): StoredAuth | null {
     const stored = JSON.parse(raw) as StoredAuth
     if (!stored.token || !stored.user) return null
     stored.user.avatarTheme = stored.user.avatarTheme ?? DEFAULT_AVATAR_THEME
+    stored.user.avatarUrl = stored.user.avatarUrl ?? DEFAULT_AVATAR_URL
     return stored
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY)
@@ -54,6 +62,7 @@ function persistSession(session: AuthSession | { token: string; user: AuthUser }
           username: session.username,
           nickname: session.nickname,
           avatarTheme: session.avatarTheme ?? DEFAULT_AVATAR_THEME,
+          avatarUrl: session.avatarUrl ?? DEFAULT_AVATAR_URL,
           role: session.role,
         }
 
@@ -86,6 +95,7 @@ export const useAuthStore = defineStore('auth', {
         username: session.username,
         nickname: session.nickname,
         avatarTheme: session.avatarTheme ?? DEFAULT_AVATAR_THEME,
+        avatarUrl: session.avatarUrl ?? DEFAULT_AVATAR_URL,
         role: session.role,
       }
       this.token = session.token
@@ -106,6 +116,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = {
           ...user,
           avatarTheme: user.avatarTheme ?? DEFAULT_AVATAR_THEME,
+          avatarUrl: user.avatarUrl ?? DEFAULT_AVATAR_URL,
         }
         persistSession({ token: this.token, user: this.user })
         return this.user
@@ -140,6 +151,19 @@ export const useAuthStore = defineStore('auth', {
       this.user = {
         ...user,
         avatarTheme: user.avatarTheme ?? DEFAULT_AVATAR_THEME,
+        avatarUrl: user.avatarUrl ?? DEFAULT_AVATAR_URL,
+      }
+      if (this.token) {
+        persistSession({ token: this.token, user: this.user })
+      }
+      return this.user
+    },
+    async uploadAvatar(file: File) {
+      const user = await uploadCurrentUserAvatar(file)
+      this.user = {
+        ...user,
+        avatarTheme: user.avatarTheme ?? DEFAULT_AVATAR_THEME,
+        avatarUrl: user.avatarUrl ?? DEFAULT_AVATAR_URL,
       }
       if (this.token) {
         persistSession({ token: this.token, user: this.user })

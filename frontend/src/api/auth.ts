@@ -31,3 +31,13 @@ export function getCurrentUser() {
 export function updateCurrentUser(payload: UpdateUserRequest) {
   return http.patch<AuthUser>('/auth/me', payload).then((res) => res.data)
 }
+
+export function uploadCurrentUserAvatar(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post<AuthUser>('/auth/me/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }).then((res) => res.data)
+}

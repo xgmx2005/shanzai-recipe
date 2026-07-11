@@ -9,6 +9,7 @@ export interface AuthUser {
   username: string
   nickname: string
   avatarTheme: string
+  avatarUrl: string
   role: UserRole
 }
 

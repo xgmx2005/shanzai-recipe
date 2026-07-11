@@ -5,6 +5,7 @@ public record UserInfoResponse(
     String username,
     String nickname,
     String avatarTheme,
+    String avatarUrl,
     String role
 ) {
 }

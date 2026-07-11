@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CheckCircle2, ChefHat, Clock3, Flame, HeartPulse, Palette, Save, Scale, ShieldCheck, SlidersHorizontal, UserRound } from '@lucide/vue'
+import {
+  CheckCircle2,
+  ChefHat,
+  Clock3,
+  Flame,
+  HeartPulse,
+  ImageUp,
+  Palette,
+  Save,
+  Scale,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+} from '@lucide/vue'
 import { useMessage } from 'naive-ui'
+import { backendAssetUrl } from '@/api/http'
 import GoalSegment from '@/components/GoalSegment.vue'
 import HealthSummaryCard from '@/components/HealthSummaryCard.vue'
 import IngredientTagInput from '@/components/IngredientTagInput.vue'
@@ -12,10 +26,12 @@ const auth = useAuthStore()
 const message = useMessage()
 const saving = ref(false)
 const accountSaving = ref(false)
+const avatarUploading = ref(false)
 const loading = ref(true)
 const error = ref('')
 const saveSuccess = ref(false)
 const accountSaveSuccess = ref(false)
+const avatarInput = ref<HTMLInputElement | null>(null)
 const genderOptions = ['女', '男'] as const
 const avatarOptions = [
   { label: '青叶', value: 'leaf' },
@@ -46,15 +62,18 @@ const accountForm = reactive({
   username: auth.user?.username ?? '',
   nickname: auth.user?.nickname ?? '',
   avatarTheme: auth.user?.avatarTheme ?? 'leaf',
+  avatarUrl: auth.user?.avatarUrl ?? '',
 })
 
 const accountAvatarText = computed(() => (accountForm.nickname || accountForm.username || '膳').slice(0, 1))
 const accountAvatarClass = computed(() => `theme-${accountForm.avatarTheme}`)
+const accountAvatarUrl = computed(() => backendAssetUrl(accountForm.avatarUrl))
 
 function syncAccountForm() {
   accountForm.username = auth.user?.username ?? ''
   accountForm.nickname = auth.user?.nickname ?? ''
   accountForm.avatarTheme = auth.user?.avatarTheme ?? 'leaf'
+  accountForm.avatarUrl = auth.user?.avatarUrl ?? ''
 }
 
 function applyProfile(profile: Profile) {
@@ -156,6 +175,33 @@ async function saveAccount() {
   }
 }
 
+function chooseAvatar() {
+  avatarInput.value?.click()
+}
+
+async function uploadAvatar(event: Event) {
+  const input = event.target
+  if (!(input instanceof HTMLInputElement)) return
+  const file = input.files?.[0]
+  if (!file) return
+
+  avatarUploading.value = true
+  accountSaveSuccess.value = false
+  error.value = ''
+  try {
+    await auth.uploadAvatar(file)
+    syncAccountForm()
+    accountSaveSuccess.value = true
+    message.success('头像已更新')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '上传头像失败'
+    message.error(error.value)
+  } finally {
+    avatarUploading.value = false
+    input.value = ''
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   error.value = ''
@@ -226,11 +272,25 @@ onMounted(async () => {
 
     <section class="account-panel sz-panel">
       <div class="account-preview">
-        <span class="account-avatar" :class="accountAvatarClass">{{ accountAvatarText }}</span>
+        <span class="account-avatar" :class="accountAvatarClass">
+          <img v-if="accountAvatarUrl" :src="accountAvatarUrl" alt="当前头像" />
+          <template v-else>{{ accountAvatarText }}</template>
+        </span>
         <div>
           <p class="sz-chip"><Palette :size="15" /> 账号资料</p>
           <h2>{{ accountForm.nickname || '设置显示名称' }}</h2>
           <span>@{{ accountForm.username || 'username' }}</span>
+          <button class="avatar-upload-button" type="button" :disabled="avatarUploading" @click="chooseAvatar">
+            <ImageUp :size="16" />
+            {{ avatarUploading ? '正在上传头像' : '上传头像' }}
+          </button>
+          <input
+            ref="avatarInput"
+            class="avatar-file-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            @change="uploadAvatar"
+          />
         </div>
       </div>
 
@@ -244,7 +304,7 @@ onMounted(async () => {
           <n-input v-model:value="accountForm.nickname" placeholder="显示在右上角和对话头像中" />
         </label>
         <section class="avatar-picker">
-          <span>头像主题</span>
+          <span>默认头像主题</span>
           <div>
             <button
               v-for="item in avatarOptions"
@@ -256,6 +316,7 @@ onMounted(async () => {
               {{ item.label }}
             </button>
           </div>
+          <small>未上传图片时，会使用这里的主题色作为头像兜底。</small>
         </section>
         <button class="account-save-button" type="submit" :disabled="accountSaving">
           <Save :size="17" />
@@ -564,6 +625,7 @@ h1 {
 }
 
 .account-avatar {
+  overflow: hidden;
   display: grid;
   flex: 0 0 auto;
   place-items: center;
@@ -575,6 +637,45 @@ h1 {
   font-size: 30px;
   font-weight: 900;
   box-shadow: 0 16px 26px rgba(23, 37, 31, 0.16);
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(35, 107, 75, 0.16);
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.avatar-upload-button:hover:not(:disabled) {
+  background: rgba(220, 239, 228, 0.92);
+  box-shadow: 0 8px 18px rgba(35, 107, 75, 0.1);
+  transform: translateY(-1px);
+}
+
+.avatar-upload-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.avatar-file-input {
+  display: none;
 }
 
 .account-avatar.theme-leaf,
@@ -633,6 +734,11 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.avatar-picker small {
+  color: var(--sz-muted);
+  line-height: 1.6;
 }
 
 .avatar-picker button {

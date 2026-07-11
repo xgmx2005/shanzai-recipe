@@ -14,15 +14,18 @@ public class AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AvatarStorageService avatarStorageService;
 
     public AuthService(
         UserMapper userMapper,
         PasswordEncoder passwordEncoder,
-        JwtTokenProvider jwtTokenProvider
+        JwtTokenProvider jwtTokenProvider,
+        AvatarStorageService avatarStorageService
     ) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.avatarStorageService = avatarStorageService;
     }
 
     @Transactional
@@ -82,6 +85,19 @@ public class AuthService {
         return toUserInfoResponse(user);
     }
 
+    @Transactional
+    public UserInfoResponse uploadAvatar(JwtUser jwtUser, org.springframework.web.multipart.MultipartFile file) {
+        UserEntity user = userMapper.selectById(jwtUser.userId());
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+
+        String avatarUrl = avatarStorageService.store(user.getId(), file);
+        user.setAvatarUrl(avatarUrl);
+        userMapper.updateById(user);
+        return toUserInfoResponse(user);
+    }
+
     private UserEntity findByUsername(String username) {
         return userMapper.selectOne(new LambdaQueryWrapper<UserEntity>().eq(UserEntity::getUsername, username));
     }
@@ -94,6 +110,7 @@ public class AuthService {
                 user.getUsername(),
                 user.getNickname(),
                 normalizeAvatarTheme(user.getAvatarTheme()),
+                normalizeAvatarUrl(user.getAvatarUrl()),
                 user.getRole()
         );
     }
@@ -104,11 +121,16 @@ public class AuthService {
                 user.getUsername(),
                 user.getNickname(),
                 normalizeAvatarTheme(user.getAvatarTheme()),
+                normalizeAvatarUrl(user.getAvatarUrl()),
                 user.getRole()
         );
     }
 
     private String normalizeAvatarTheme(String avatarTheme) {
         return avatarTheme == null || avatarTheme.isBlank() ? "leaf" : avatarTheme;
+    }
+
+    private String normalizeAvatarUrl(String avatarUrl) {
+        return avatarUrl == null ? "" : avatarUrl;
     }
 }

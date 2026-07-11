@@ -27,3 +27,5 @@ app:
     model: deepseek-v4-flash
     connect-timeout: 2s
     read-timeout: 8s
+  upload:
+    avatar-dir: ${AVATAR_UPLOAD_DIR:uploads/avatars}

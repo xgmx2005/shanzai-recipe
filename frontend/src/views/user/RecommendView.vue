@@ -207,6 +207,7 @@ onMounted(initialize)
           :messages="conversation.messages"
           :loading="sending || confirming"
           :user-avatar-text="userAvatarText"
+          :user-avatar-url="auth.user?.avatarUrl ?? ''"
         />
 
         <RecommendationComposer

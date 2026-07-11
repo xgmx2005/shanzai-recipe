@@ -6,6 +6,7 @@ public record LoginResponse(
     String username,
     String nickname,
     String avatarTheme,
+    String avatarUrl,
     String role
 ) {
 }

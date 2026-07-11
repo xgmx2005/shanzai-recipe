@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { Bot } from '@lucide/vue'
+import { backendAssetUrl } from '@/api/http'
 import type { ConversationMessage } from '@/types'
 
 withDefaults(defineProps<{
   messages: ConversationMessage[]
   loading?: boolean
   userAvatarText?: string
+  userAvatarUrl?: string
 }>(), {
   userAvatarText: '我',
+  userAvatarUrl: '',
 })
 
 function formatTime(value: string) {
@@ -33,7 +36,8 @@ function formatTime(value: string) {
       :class="{ 'is-user': item.role === 'USER' }"
     >
       <span class="avatar">
-        <template v-if="item.role === 'USER'">{{ userAvatarText }}</template>
+        <img v-if="item.role === 'USER' && userAvatarUrl" :src="backendAssetUrl(userAvatarUrl)" alt="" />
+        <template v-else-if="item.role === 'USER'">{{ userAvatarText }}</template>
         <Bot v-else :size="17" />
       </span>
       <div class="bubble">
@@ -116,6 +120,7 @@ function formatTime(value: string) {
 }
 
 .avatar {
+  overflow: hidden;
   display: grid;
   place-items: center;
   width: 36px;
@@ -125,6 +130,12 @@ function formatTime(value: string) {
   background: var(--sz-mint);
   font-size: 13px;
   font-weight: 900;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .bubble {
