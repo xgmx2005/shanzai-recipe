@@ -356,6 +356,73 @@ class RecommendationConversationServiceTest {
         verify(historyService).getRecommendationResponse(7L, 99L);
         verifyNoInteractions(recommendationService);
     }
+
+    @Test
+    void patchContextKeepsConversationActiveWhenExistingConflictRemains() throws Exception {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                "FAT_LOSS",
+                List.of(new AvailableIngredientInput("鸡胸肉", new BigDecimal("300"), "g", true)),
+                List.of(),
+                List.of(),
+                30,
+                2,
+                List.of(),
+                List.of("鸡胸肉数量无效"),
+                true
+        );
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setStage(ConversationStage.CONFIRM.name());
+        conversation.setStatus(ConversationStatus.ACTIVE.name());
+        conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+
+        ConversationResponse response = service.patchContext(
+                7L,
+                10L,
+                new ConversationContextPatchRequest("更清淡的晚餐", null, null, null, null, null, null)
+        );
+
+        assertEquals(ConversationStatus.ACTIVE, response.status());
+        assertEquals(List.of("鸡胸肉数量无效"), response.context().conflicts());
+    }
+
+    @Test
+    void confirmRunsInsideConversationLockAndExplicitTransactionTemplate() throws Exception {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                "FAT_LOSS",
+                List.of(new AvailableIngredientInput("鸡胸肉", new BigDecimal("300"), "g", true)),
+                List.of(),
+                List.of(),
+                30,
+                2,
+                List.of(),
+                List.of(),
+                true
+        );
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setStage(ConversationStage.CONFIRM.name());
+        conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
+        conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(recommendationService.recommend(any(), any()))
+                .thenReturn(new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of()));
+
+        Object lock = service.lockForConversation(10L);
+        Thread worker;
+        synchronized (lock) {
+            worker = new Thread(() -> service.confirm(7L, 10L));
+            worker.start();
+            Thread.sleep(100);
+            assertTrue(worker.isAlive());
+            assertEquals(0, transactionManager.beginCount());
+        }
+        worker.join(3000);
+        assertEquals(1, transactionManager.beginCount());
+        assertEquals(1, transactionManager.commitCount());
+    }
     private RecommendationConversationEntity activeConversation(Long id, Long userId) {
         RecommendationConversationEntity entity = new RecommendationConversationEntity();
         entity.setId(id);

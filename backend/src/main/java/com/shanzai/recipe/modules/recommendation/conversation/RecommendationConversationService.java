@@ -233,8 +233,8 @@ public class RecommendationConversationService {
                 request.allergyIngredients() == null ? current.allergyIngredients() : request.allergyIngredients(),
                 request.cookingTime() == null ? current.cookingTime() : request.cookingTime(),
                 request.servings() == null ? current.servings() : request.servings(),
-                List.of(),
-                List.of(),
+                current.unknownTerms(),
+                resolvePatchConflicts(current.conflicts(), request.availableIngredients()),
                 request.excludedIngredients() != null || request.allergyIngredients() != null || current.restrictionsConfirmed()
         );
         ConversationStage nextStage = flow.firstMissingStage(patched);
@@ -250,8 +250,14 @@ public class RecommendationConversationService {
         return getConversation(userId, conversationId);
     }
 
-    @Transactional
     public RecommendationResponse confirm(Long userId, Long conversationId) {
+        synchronized (lockForConversation(conversationId)) {
+            return Objects.requireNonNull(transactionTemplate.execute(
+                    status -> confirmLocked(userId, conversationId)));
+        }
+    }
+
+    private RecommendationResponse confirmLocked(Long userId, Long conversationId) {
         RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
         ConversationStatus status = ConversationStatus.valueOf(conversation.getStatus());
         if (status == ConversationStatus.COMPLETED) {
@@ -269,6 +275,35 @@ public class RecommendationConversationService {
         conversation.setUpdatedAt(LocalDateTime.now());
         conversationMapper.updateById(conversation);
         return response;
+    }
+
+    private List<String> resolvePatchConflicts(
+            List<String> currentConflicts,
+            List<AvailableIngredientInput> patchedIngredients
+    ) {
+        if (currentConflicts == null || currentConflicts.isEmpty()) {
+            return List.of();
+        }
+        if (patchedIngredients == null || patchedIngredients.isEmpty()) {
+            return currentConflicts;
+        }
+        return currentConflicts.stream()
+                .filter(conflict -> !isQuantityConflictResolved(conflict, patchedIngredients))
+                .toList();
+    }
+
+    private boolean isQuantityConflictResolved(
+            String conflict,
+            List<AvailableIngredientInput> patchedIngredients
+    ) {
+        if (isBlank(conflict)) {
+            return false;
+        }
+        return patchedIngredients.stream().anyMatch(ingredient ->
+                ingredient != null
+                        && ingredient.quantityKnown()
+                        && ingredient.name() != null
+                        && conflict.startsWith(ingredient.name().trim() + "数量"));
     }
     private RecommendationConversationEntity requireConversation(Long userId, Long conversationId) {
         RecommendationConversationEntity conversation = conversationMapper.selectById(conversationId);
