@@ -16,7 +16,6 @@ import java.util.regex.Pattern;
 
 @Component
 public class DictionaryConversationAnswerInterpreter implements ConversationAnswerInterpreter {
-    private static final Pattern NUMBER = Pattern.compile("(?:\\d+(?:\\.\\d+)?|[零一二三四五六七八九十百千万两]+)");
     private static final Pattern AMOUNT = Pattern.compile(
             "(?:\\d+(?:\\.\\d+)?|[零一二三四五六七八九十百千万两]+)\\s*(克|g|千克|kg|毫升|ml|个)",
             Pattern.CASE_INSENSITIVE
@@ -81,10 +80,11 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         addUniqueAll(allergies, specificRestrictions.allergies());
         for (IngredientOccurrence occurrence : occurrences) {
             String clause = clauseAround(text, occurrence.start(), occurrence.end());
-            if (!RESTRICTION_MARKER.matcher(clause).find()) {
+            String classifiedClause = NO_RESTRICTION.matcher(clause).replaceAll(" ");
+            if (!RESTRICTION_MARKER.matcher(classifiedClause).find()) {
                 continue;
             }
-            if (clause.contains("过敏")) {
+            if (classifiedClause.contains("过敏")) {
                 addUnique(allergies, occurrence.name());
             } else {
                 addUnique(excluded, occurrence.name());
@@ -123,45 +123,54 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             RecommendationConversationContext context
     ) {
         ConversationAnswerAnalysis local = interpret(stage, content, context);
-        if (!local.relevant()) {
+        boolean localRelevant = local.relevant();
+        if (!localRelevant && !hasAlphaNumericOrChinese(content == null ? "" : content.trim())) {
             return local;
         }
 
         List<AvailableIngredientInput> ingredients = new ArrayList<>();
         List<String> conflicts = new ArrayList<>();
+        List<String> localConflicts = localRelevant ? local.conflicts() : List.of();
         for (AvailableIngredientInput ingredient : candidate.availableIngredients()) {
+            if (blockedByLocalConflict(localConflicts, ingredient)) {
+                continue;
+            }
             addValidatedIngredient(ingredients, conflicts, ingredient);
         }
-        for (AvailableIngredientInput ingredient : local.availableIngredients()) {
+        for (AvailableIngredientInput ingredient : localRelevant
+                ? local.availableIngredients() : List.<AvailableIngredientInput>of()) {
             addValidatedIngredient(ingredients, conflicts, ingredient);
         }
 
         List<String> excluded = normalizedNames(candidate.excludedIngredients());
-        addUniqueAll(excluded, local.excludedIngredients());
+        addUniqueAll(excluded, localRelevant ? local.excludedIngredients() : List.of());
         List<String> allergies = normalizedNames(candidate.allergyIngredients());
-        addUniqueAll(allergies, local.allergyIngredients());
-        boolean restrictionsAnswered = local.restrictionsAnswered()
+        addUniqueAll(allergies, localRelevant ? local.allergyIngredients() : List.of());
+        boolean restrictionsAnswered = (localRelevant && local.restrictionsAnswered())
                 || (candidate.restrictionsAnswered() && (!excluded.isEmpty() || !allergies.isEmpty()));
 
         List<String> unknown = new ArrayList<>(candidate.unknownTerms());
-        addUniqueAll(unknown, local.unknownTerms());
+        addUniqueAll(unknown, localRelevant ? local.unknownTerms() : List.of());
         List<String> candidateConflicts = new ArrayList<>(candidate.conflicts());
-        addUniqueAll(candidateConflicts, local.conflicts());
         addUniqueAll(candidateConflicts, conflicts);
         unknown = unresolved(context == null ? List.of() : context.unknownTerms(), unknown, content, ingredients);
-        conflicts = unresolvedConflicts(
-                context == null ? List.of() : context.conflicts(), candidateConflicts, content, ingredients);
-        conflicts.addAll(unresolvedConflicts(List.of(), conflicts, content, ingredients));
-        conflicts = deduplicate(conflicts);
+        List<String> aiConflicts = unresolvedConflicts(
+                context == null ? List.of() : context.conflicts(),
+                candidateConflicts,
+                content,
+                localRelevant ? local.availableIngredients() : List.of()
+        );
+        conflicts = new ArrayList<>(localConflicts);
+        addUniqueAll(conflicts, aiConflicts);
 
         Integer time = candidate.cookingTime() != null && candidate.cookingTime() > 0
-                ? candidate.cookingTime() : local.cookingTime();
+                ? candidate.cookingTime() : localRelevant ? local.cookingTime() : null;
         Integer people = candidate.servings() != null && candidate.servings() >= 1
-                ? candidate.servings() : local.servings();
+                ? candidate.servings() : localRelevant ? local.servings() : null;
         return new ConversationAnswerAnalysis(
                 candidate.relevant(),
-                hasText(candidate.intentText()) ? candidate.intentText() : local.intentText(),
-                hasText(candidate.dietGoal()) ? candidate.dietGoal() : local.dietGoal(),
+                hasText(candidate.intentText()) ? candidate.intentText() : localRelevant ? local.intentText() : null,
+                hasText(candidate.dietGoal()) ? candidate.dietGoal() : localRelevant ? local.dietGoal() : null,
                 ingredients, excluded, allergies, time, people, unknown, conflicts,
                 candidate.confidence(), restrictionsAnswered
         );
@@ -200,6 +209,18 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             return;
         }
         ingredients.add(normalized);
+    }
+
+    private boolean blockedByLocalConflict(
+            List<String> conflicts,
+            AvailableIngredientInput ingredient
+    ) {
+        if (ingredient == null || ingredient.name() == null || ingredient.name().isBlank()) {
+            return conflicts.contains("未命名食材");
+        }
+        String name = normalizeName(ingredient.name());
+        return conflicts.stream().anyMatch(value ->
+                value.equals(name + "数量无效") || value.startsWith(name + "数量"));
     }
 
     private List<IngredientOccurrence> findIngredients(String text) {
@@ -246,9 +267,14 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         if (!matcher.find()) {
             return null;
         }
-        String numberText = matcher.group().replaceAll("\\s*(克|g|千克|kg|毫升|ml|个)\\s*$", "").trim();
-        BigDecimal quantity = parseNumber(numberText);
-        return new Amount(quantity, normalizeUnit(matcher.group(1)));
+        String amount = matcher.group();
+        String unit = matcher.group(1);
+        while (matcher.find()) {
+            amount = matcher.group();
+            unit = matcher.group(1);
+        }
+        String numberText = amount.replaceAll("\\s*(克|g|千克|kg|毫升|ml|个)\\s*$", "").trim();
+        return new Amount(parseNumber(numberText), normalizeUnit(unit));
     }
 
     private boolean isSeparatorBefore(String text, int index) {
@@ -337,7 +363,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
 
     private void addRestrictionTerm(List<String> target, String value) {
         String term = value == null ? "" : value.trim().replaceAll("\\s+", "");
-        term = term.replaceFirst("^(对|关于)", "");
+        term = term.replaceFirst("^(?:(?:但是|而且|并且|同时|关于|对|但|我|用户|有|是)+)", "");
         term = term.replaceAll("(食物|食品|之类|等|吧|呀|呢)$", "");
         if (term.isEmpty() || !hasAlphaNumericOrChinese(term)
                 || NO_RESTRICTION.matcher(term).find()) {

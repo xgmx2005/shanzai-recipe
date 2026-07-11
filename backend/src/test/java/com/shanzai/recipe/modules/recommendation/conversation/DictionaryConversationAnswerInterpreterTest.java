@@ -127,4 +127,27 @@ class DictionaryConversationAnswerInterpreterTest {
         assertEquals(30, bounded.cookingTime());
         assertTrue(bounded.availableIngredients().isEmpty());
     }
+
+    @Test
+    void bindsTheNearestQuantityInAContinuousIngredientExpression() {
+        ConversationAnswerAnalysis analysis = interpreter.interpret(
+                ConversationStage.INGREDIENTS, "100克鸡胸肉200克鸡蛋", RecommendationConversationContext.empty());
+
+        assertEquals(new BigDecimal("100"), analysis.availableIngredients().get(0).quantity());
+        assertEquals(new BigDecimal("200"), analysis.availableIngredients().get(1).quantity());
+    }
+
+    @Test
+    void removesNegatedRestrictionPhrasesBeforeClassifyingOccurrences() {
+        ConversationAnswerAnalysis notAllergic = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "花生不过敏", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis mixed = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "没有忌口但是花生过敏", RecommendationConversationContext.empty());
+
+        assertTrue(notAllergic.restrictionsAnswered());
+        assertTrue(notAllergic.allergyIngredients().isEmpty());
+        assertTrue(notAllergic.excludedIngredients().isEmpty());
+        assertEquals(List.of("花生"), mixed.allergyIngredients());
+        assertTrue(mixed.excludedIngredients().isEmpty());
+    }
 }

@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -98,6 +99,70 @@ class HttpConversationAnswerInterpreterTest {
                 httpError.availableIngredients().stream().map(AvailableIngredientInput::name).toList());
     }
 
+    @Test
+    void localInvalidQuantityCannotBeOverriddenByAiQuantity() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiChickenResponse(), MediaType.APPLICATION_JSON));
+
+        HttpConversationAnswerInterpreter interpreter = newInterpreter(builder, "test-key");
+        ConversationAnswerAnalysis invalid = interpreter.interpret(
+                ConversationStage.INGREDIENTS, "0克鸡胸肉", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(invalid.conflicts().contains("鸡胸肉数量无效"));
+        assertTrue(invalid.availableIngredients().isEmpty());
+
+        RecommendationConversationContext blocked =
+                RecommendationConversationContext.empty().merge(invalid);
+        ConversationAnswerAnalysis corrected = new DictionaryConversationAnswerInterpreter().interpret(
+                ConversationStage.INGREDIENTS, "300克鸡胸肉", blocked);
+
+        assertTrue(corrected.conflicts().isEmpty());
+        assertEquals(new BigDecimal("300"), corrected.availableIngredients().get(0).quantity());
+    }
+
+    @Test
+    void preservesValidAiOnlyFieldsWhenLocalDictionaryHasNoMatch() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiOnlyResponse(), MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "紫甘蓝", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(analysis.relevant());
+        assertEquals(List.of("紫甘蓝"),
+                analysis.availableIngredients().stream().map(AvailableIngredientInput::name).toList());
+        assertEquals(List.of("乳糖"), analysis.excludedIngredients());
+        assertEquals(List.of("坚果"), analysis.allergyIngredients());
+    }
+
+    @Test
+    void hardRejectsSymbolsEvenWhenAiReturnsValidFields() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiOnlyResponse(), MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "@@@", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertFalse(analysis.relevant());
+        assertTrue(analysis.availableIngredients().isEmpty());
+    }
+
+    @Test
+    void missingChoicesMessageOrContentFallsBackToDictionary() {
+        assertFallbackForResponse("{\"choices\":[]}");
+        assertFallbackForResponse("{\"choices\":[{}]}");
+        assertFallbackForResponse("{\"choices\":[{\"message\":{}}]}");
+    }
+
     private HttpConversationAnswerInterpreter newInterpreter(RestClient.Builder builder, String apiKey) {
         return new HttpConversationAnswerInterpreter(
                 builder,
@@ -125,5 +190,52 @@ class HttpConversationAnswerInterpreterTest {
                   }]
                 }
                 """;
+    }
+
+    private void assertFallbackForResponse(String response) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "一个鸡蛋", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertEquals(List.of("鸡蛋"),
+                analysis.availableIngredients().stream().map(AvailableIngredientInput::name).toList());
+    }
+
+    private String aiChickenResponse() {
+        return responseFor("鸡胸肉", "300", "g", "true", "[]", "[]");
+    }
+
+    private String aiOnlyResponse() {
+        return """
+                {
+                  "choices": [{
+                    "message": {"content": "{\\"relevant\\":true,\\"intentText\\":null,\\"dietGoal\\":null,\\"availableIngredients\\":[{\\"name\\":\\"紫甘蓝\\",\\"quantity\\":200,\\"unit\\":\\"g\\",\\"quantityKnown\\":true}],\\"excludedIngredients\\":[\\"乳糖\\"],\\"allergyIngredients\\":[\\"坚果\\"],\\"cookingTime\\":null,\\"servings\\":null,\\"unknownTerms\\":[],\\"conflicts\\":[],\\"confidence\\":0.9,\\"restrictionsAnswered\\":true}"
+                    }
+                  }]
+                }
+                """;
+    }
+
+    private String responseFor(
+            String name,
+            String quantity,
+            String unit,
+            String quantityKnown,
+            String excluded,
+            String allergies
+    ) {
+        return """
+                {
+                  "choices": [{
+                    "message": {"content": "{\\"relevant\\":true,\\"intentText\\":null,\\"dietGoal\\":null,\\"availableIngredients\\":[{\\"name\\":\\"%s\\",\\"quantity\\":%s,\\"unit\\":\\"%s\\",\\"quantityKnown\\":%s}],\\"excludedIngredients\\":%s,\\"allergyIngredients\\":%s,\\"cookingTime\\":null,\\"servings\\":null,\\"unknownTerms\\":[],\\"conflicts\\":[],\\"confidence\\":0.9,\\"restrictionsAnswered\\":true}"
+                    }
+                  }]
+                }
+                """.formatted(name, quantity, unit, quantityKnown, excluded, allergies);
     }
 }
