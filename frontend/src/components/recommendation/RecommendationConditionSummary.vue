@@ -30,6 +30,10 @@ const goalLabels: Record<DietGoal, string> = {
 
 const ingredientNames = computed(() => props.context.availableIngredients.map((item) => item.name))
 const canConfirm = computed(() => props.showConfirmation && props.status === 'READY_TO_CONFIRM' && props.context.conflicts.length === 0)
+const goalLabel = computed(() => {
+  const value = props.context.dietGoal
+  return value && value in goalLabels ? goalLabels[value as DietGoal] : '待确认'
+})
 const editing = ref(false)
 const draft = reactive({
   dietGoal: 'BALANCED' as DietGoal,
@@ -139,7 +143,7 @@ function saveConditions() {
     <div v-else class="summary-grid">
       <article>
         <span><CheckCircle2 :size="17" /> 饮食目标</span>
-        <strong>{{ context.dietGoal ? goalLabels[context.dietGoal] : '待确认' }}</strong>
+        <strong>{{ goalLabel }}</strong>
       </article>
       <article>
         <span><Clock3 :size="17" /> 烹饪时间</span>

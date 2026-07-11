@@ -75,6 +75,23 @@ class DictionaryConversationAnswerInterpreterTest {
     }
 
     @Test
+    void recognizesHighProteinAndBalancedIntentAsDietGoals() {
+        ConversationAnswerAnalysis highProtein = interpreter.interpret(
+                ConversationStage.INTENT,
+                "想吃清淡点，想吃高蛋白",
+                RecommendationConversationContext.empty()
+        );
+        ConversationAnswerAnalysis balanced = interpreter.interpret(
+                ConversationStage.INTENT,
+                "想吃健康均衡一点",
+                RecommendationConversationContext.empty()
+        );
+
+        assertEquals("MUSCLE_GAIN", highProtein.dietGoal());
+        assertEquals("BALANCED", balanced.dietGoal());
+    }
+
+    @Test
     void isolatesVagueTermsAndMarksOnlyExplicitRestrictionAnswers() {
         ConversationAnswerAnalysis vague = interpreter.interpret(
                 ConversationStage.INGREDIENTS, "有肉和菜", RecommendationConversationContext.empty());

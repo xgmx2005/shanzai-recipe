@@ -113,7 +113,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         Integer cookingTime = extractTime(text);
         Integer servings = extractServings(text);
         String intentText = stage == ConversationStage.INTENT ? text : null;
-        String dietGoal = extractDietGoal(text);
+        String dietGoal = normalizeDietGoal(extractDietGoal(text));
         if (!hasMeaningfulSignal(stage, text, occurrences, unknown, cookingTime, servings,
                 restrictionsAnswered, dietGoal)) {
             return ConversationAnswerAnalysis.invalid();
@@ -203,7 +203,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         return new ConversationAnswerAnalysis(
                 localRelevant || candidate.relevant() && aiHasValidSignal,
                 hasText(candidate.intentText()) ? candidate.intentText() : localRelevant ? local.intentText() : null,
-                hasText(candidate.dietGoal()) ? candidate.dietGoal() : localRelevant ? local.dietGoal() : null,
+                firstValidDietGoal(candidate.dietGoal(), localRelevant ? local.dietGoal() : null),
                 ingredients, excluded, allergies, time, people, unknown, conflicts,
                 restrictionsAnswered, clearRestrictions, candidate.confidence()
         );
@@ -373,13 +373,34 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         if (text.contains("减脂") || text.contains("减肥")) {
             return "FAT_LOSS";
         }
-        if (text.contains("增肌")) {
+        if (text.contains("增肌") || text.contains("高蛋白") || text.contains("蛋白质")) {
             return "MUSCLE_GAIN";
+        }
+        if (text.contains("均衡") || text.contains("健康") || text.contains("清淡")) {
+            return "BALANCED";
         }
         if (text.contains("低糖") || text.contains("控糖")) {
             return "LOW_SUGAR";
         }
         return null;
+    }
+
+    private String firstValidDietGoal(String first, String second) {
+        String normalizedFirst = normalizeDietGoal(first);
+        if (normalizedFirst != null) {
+            return normalizedFirst;
+        }
+        return normalizeDietGoal(second);
+    }
+
+    private String normalizeDietGoal(String value) {
+        if (!hasText(value)) {
+            return null;
+        }
+        return switch (value.trim()) {
+            case "FAT_LOSS", "BALANCED", "MUSCLE_GAIN" -> value.trim();
+            default -> null;
+        };
     }
 
     private RestrictionTerms findSpecificRestrictions(String text) {

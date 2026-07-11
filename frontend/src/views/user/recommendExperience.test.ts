@@ -62,4 +62,13 @@ describe('recommendation conversation experience', () => {
     expect(recommendSource).toContain('patchConversationContext')
     expect(recommendSource).toContain('saveConditions')
   })
+
+  it('renders a safe diet goal label and an agent-side generate action when conditions are ready', () => {
+    expect(summarySource).toContain('goalLabel')
+    expect(summarySource).not.toContain("goalLabels[context.dietGoal]")
+    expect(messageListSource).toContain('showGenerateAction')
+    expect(messageListSource).toContain('generate-action')
+    expect(messageListSource).toContain('去生成')
+    expect(recommendSource).toContain('canGenerateRecommendation')
+  })
 })

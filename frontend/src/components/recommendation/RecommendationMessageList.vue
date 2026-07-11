@@ -1,19 +1,32 @@
 <script setup lang="ts">
-import { Bot } from '@lucide/vue'
+import { computed } from 'vue'
+import { Bot, CheckCircle2 } from '@lucide/vue'
 import { backendAssetUrl } from '@/api/http'
 import type { ConversationMessage } from '@/types'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   messages: ConversationMessage[]
   loading?: boolean
   userAvatarText?: string
   userAvatarUrl?: string
   streamingMessageId?: number | null
+  showGenerateAction?: boolean
+  generating?: boolean
 }>(), {
   userAvatarText: '我',
   userAvatarUrl: '',
   streamingMessageId: null,
+  showGenerateAction: false,
+  generating: false,
 })
+
+const emit = defineEmits<{
+  (event: 'generate'): void
+}>()
+
+const latestAssistantMessageId = computed(() =>
+  [...props.messages].reverse().find((item) => item.role === 'ASSISTANT')?.id ?? null,
+)
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('zh-CN', {
@@ -45,6 +58,16 @@ function formatTime(value: string) {
       <div class="bubble">
         <p>{{ item.content }}</p>
         <time>{{ formatTime(item.createdAt) }}</time>
+        <button
+          v-if="showGenerateAction && item.role === 'ASSISTANT' && item.id === latestAssistantMessageId"
+          type="button"
+          class="generate-action"
+          :disabled="generating"
+          @click="emit('generate')"
+        >
+          <CheckCircle2 :size="16" />
+          {{ generating ? '正在生成' : '去生成' }}
+        </button>
       </div>
     </article>
 
@@ -174,6 +197,28 @@ function formatTime(value: string) {
   color: var(--sz-muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.generate-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--sz-radius-pill);
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(35, 107, 75, 0.16);
+}
+
+.generate-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .bubble.is-thinking {

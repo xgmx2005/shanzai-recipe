@@ -36,6 +36,14 @@ const streamingAssistantMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantContent = ref('')
 const agentThinking = computed(() => sending.value && !streamingAssistantMessage.value)
 const userAvatarText = computed(() => (auth.user?.nickname ?? auth.user?.username ?? '我').slice(0, 1))
+const canGenerateRecommendation = computed(() => {
+  const current = conversation.value
+  if (!current) return false
+  return current.status === 'READY_TO_CONFIRM'
+    && current.showConfirmation
+    && current.context.unknownTerms.length === 0
+    && current.context.conflicts.length === 0
+})
 
 const displayMessages = computed(() => {
   const messages = [...(conversation.value?.messages ?? [])]
@@ -290,6 +298,9 @@ onMounted(initialize)
               :streaming-message-id="streamingAssistantMessage?.id ?? null"
               :user-avatar-text="userAvatarText"
               :user-avatar-url="auth.user?.avatarUrl ?? ''"
+              :show-generate-action="canGenerateRecommendation"
+              :generating="confirming"
+              @generate="confirm"
             />
 
             <RecommendationComposer
