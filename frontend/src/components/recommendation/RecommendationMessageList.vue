@@ -8,9 +8,11 @@ withDefaults(defineProps<{
   loading?: boolean
   userAvatarText?: string
   userAvatarUrl?: string
+  streamingMessageId?: number | null
 }>(), {
   userAvatarText: '我',
   userAvatarUrl: '',
+  streamingMessageId: null,
 })
 
 function formatTime(value: string) {
@@ -33,7 +35,7 @@ function formatTime(value: string) {
       v-for="item in messages"
       :key="item.id"
       class="message-item"
-      :class="{ 'is-user': item.role === 'USER' }"
+      :class="{ 'is-user': item.role === 'USER', 'is-streaming': item.id === streamingMessageId }"
     >
       <span class="avatar">
         <img v-if="item.role === 'USER' && userAvatarUrl" :src="backendAssetUrl(userAvatarUrl)" alt="" />
@@ -119,6 +121,18 @@ function formatTime(value: string) {
   color: rgba(255, 255, 255, 0.76);
 }
 
+.message-item.is-streaming .bubble p::after {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: var(--sz-green-dark);
+  vertical-align: -0.18em;
+  content: '';
+  animation: stream-caret 0.9s ease-in-out infinite;
+}
+
 .avatar {
   overflow: hidden;
   display: grid;
@@ -174,6 +188,42 @@ function formatTime(value: string) {
   border-radius: 50%;
   background: var(--sz-green-dark);
   opacity: 0.55;
+}
+
+.bubble.is-thinking span:nth-child(1) {
+  animation: thinking-dot 1s ease-in-out infinite;
+}
+
+.bubble.is-thinking span:nth-child(2) {
+  animation: thinking-dot 1s ease-in-out 0.15s infinite;
+}
+
+.bubble.is-thinking span:nth-child(3) {
+  animation: thinking-dot 1s ease-in-out 0.3s infinite;
+}
+
+@keyframes stream-caret {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes thinking-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
 @media (max-width: 640px) {

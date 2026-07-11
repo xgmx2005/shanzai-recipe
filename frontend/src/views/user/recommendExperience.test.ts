@@ -30,4 +30,13 @@ describe('recommendation conversation experience', () => {
     expect(messageListSource).toContain('userAvatarText')
     expect(messageListSource).not.toContain('<UserRound')
   })
+
+  it('renders agent responses with optimistic sending, thinking, and streamed reveal states', () => {
+    expect(recommendSource).toContain('pendingUserMessage')
+    expect(recommendSource).toContain('agentThinking')
+    expect(recommendSource).toContain('streamAssistantContent')
+    expect(recommendSource).toContain('displayMessages')
+    expect(messageListSource).toContain('streamingMessageId')
+    expect(messageListSource).toContain('is-streaming')
+  })
 })

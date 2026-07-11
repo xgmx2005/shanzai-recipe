@@ -14,7 +14,7 @@ import RecommendationComposer from '@/components/recommendation/RecommendationCo
 import RecommendationConditionSummary from '@/components/recommendation/RecommendationConditionSummary.vue'
 import RecommendationMessageList from '@/components/recommendation/RecommendationMessageList.vue'
 import { useAuthStore } from '@/stores/auth'
-import type { ConversationResponse } from '@/types'
+import type { ConversationMessage, ConversationResponse } from '@/types'
 import { recommendationResultRoute } from '@/utils/recommendationConversation'
 
 const route = useRoute()
@@ -29,7 +29,31 @@ const error = ref('')
 const conversation = ref<ConversationResponse | null>(null)
 const resumableConversation = ref<ConversationResponse | null>(null)
 const showResumeChoice = ref(false)
+const pendingUserMessage = ref<ConversationMessage | null>(null)
+const streamingAssistantMessage = ref<ConversationMessage | null>(null)
+const streamingAssistantContent = ref('')
+const agentThinking = computed(() => sending.value && !streamingAssistantMessage.value)
 const userAvatarText = computed(() => (auth.user?.nickname ?? auth.user?.username ?? '我').slice(0, 1))
+
+const displayMessages = computed(() => {
+  const messages = [...(conversation.value?.messages ?? [])]
+  if (
+    pendingUserMessage.value &&
+    !messages.some((item) => item.clientMessageId === pendingUserMessage.value?.clientMessageId)
+  ) {
+    messages.push(pendingUserMessage.value)
+  }
+
+  if (streamingAssistantMessage.value) {
+    return messages.map((item) =>
+      item.id === streamingAssistantMessage.value?.id
+        ? { ...item, content: streamingAssistantContent.value || ' ' }
+        : item,
+    )
+  }
+
+  return messages
+})
 
 const contextReadyCount = computed(() => {
   const context = conversation.value?.context
@@ -60,6 +84,7 @@ async function beginConversation(replaceActive = false) {
   error.value = ''
   loading.value = true
   showResumeChoice.value = false
+  resetTransientMessages()
   try {
     conversation.value = await startConversation(replaceActive)
     await syncRoute(conversation.value.id)
@@ -109,6 +134,25 @@ async function restart() {
   await beginConversation(true)
 }
 
+function resetTransientMessages() {
+  pendingUserMessage.value = null
+  streamingAssistantMessage.value = null
+  streamingAssistantContent.value = ''
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function streamAssistantContent(content: string) {
+  const chars = Array.from(content)
+  const chunkSize = chars.length > 220 ? 4 : chars.length > 120 ? 3 : 2
+  for (let index = 0; index < chars.length; index += chunkSize) {
+    streamingAssistantContent.value = chars.slice(0, index + chunkSize).join('')
+    await sleep(18)
+  }
+}
+
 async function submitMessage(content: string) {
   if (sending.value) return
   if (!conversation.value) {
@@ -118,16 +162,38 @@ async function submitMessage(content: string) {
 
   sending.value = true
   error.value = ''
+  const previousMessageIds = new Set(conversation.value.messages.map((item) => item.id))
+  const clientMessageId = `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  pendingUserMessage.value = {
+    id: -Date.now(),
+    role: 'USER',
+    content,
+    clientMessageId,
+    createdAt: new Date().toISOString(),
+  }
   try {
-    conversation.value = await sendConversationMessage(conversation.value.id, {
+    const nextConversation = await sendConversationMessage(conversation.value.id, {
       content,
-      clientMessageId: `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      clientMessageId,
     })
+    const assistantMessage = nextConversation.messages.find(
+      (item) => item.role === 'ASSISTANT' && !previousMessageIds.has(item.id),
+    )
+    conversation.value = nextConversation
+    pendingUserMessage.value = null
     await syncRoute(conversation.value.id)
+    if (assistantMessage?.content) {
+      streamingAssistantMessage.value = assistantMessage
+      streamingAssistantContent.value = ''
+      await streamAssistantContent(assistantMessage.content)
+    }
   } catch (err) {
+    resetTransientMessages()
     error.value = err instanceof Error ? err.message : '发送失败，请稍后重试'
     message.error(error.value)
   } finally {
+    streamingAssistantMessage.value = null
+    streamingAssistantContent.value = ''
     sending.value = false
   }
 }
@@ -198,7 +264,7 @@ onMounted(initialize)
       <template v-else-if="conversation">
         <div class="conversation-workspace">
           <div class="conversation-main">
-            <div v-if="conversation.messages.length === 0" class="agent-prompt">
+            <div v-if="displayMessages.length === 0" class="agent-prompt">
               <span class="agent-orb"><Bot :size="23" /></span>
               <strong>先说说你今天想怎么吃</strong>
               <p>例如：家里有鸡蛋、西兰花和牛肉，想吃清淡一点，20 分钟内做好。</p>
@@ -206,8 +272,9 @@ onMounted(initialize)
 
             <RecommendationMessageList
               v-else
-              :messages="conversation.messages"
-              :loading="sending || confirming"
+              :messages="displayMessages"
+              :loading="agentThinking || confirming"
+              :streaming-message-id="streamingAssistantMessage?.id ?? null"
               :user-avatar-text="userAvatarText"
               :user-avatar-url="auth.user?.avatarUrl ?? ''"
             />
