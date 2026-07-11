@@ -494,7 +494,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     }
 
     private String normalizeUnit(String unit) {
-        return switch (unit.toLowerCase(Locale.ROOT)) {
+        return switch (canonicalUnit(unit)) {
             case "克", "g" -> "g";
             case "千克", "kg" -> "kg";
             case "毫升", "ml" -> "ml";
@@ -504,13 +504,14 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     }
 
     private boolean isSupportedUnit(String unit) {
-        if (unit == null || unit.isBlank()) {
-            return false;
-        }
-        return switch (unit.trim().toLowerCase(Locale.ROOT)) {
+        return switch (canonicalUnit(unit)) {
             case "克", "g", "千克", "kg", "毫升", "ml", "个" -> true;
             default -> false;
         };
+    }
+
+    private String canonicalUnit(String unit) {
+        return unit == null ? "" : unit.trim().toLowerCase(Locale.ROOT);
     }
 
     private BigDecimal parseNumber(String text) {

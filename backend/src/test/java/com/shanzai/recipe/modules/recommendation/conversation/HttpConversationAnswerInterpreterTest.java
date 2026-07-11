@@ -192,6 +192,24 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void trimsAndNormalizesSupportedAiUnits() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(
+                        responseFor("紫甘蓝", "200", " g ", "true", "[]", "[]"),
+                        MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "紫甘蓝", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertEquals(new BigDecimal("200"), analysis.availableIngredients().get(0).quantity());
+        assertEquals("g", analysis.availableIngredients().get(0).unit());
+        assertTrue(analysis.conflicts().isEmpty());
+    }
+
+    @Test
     void resolvesConversationAnswerInterpreterToHttpPrimaryBean() {
         try (AnnotationConfigApplicationContext context =
                      new AnnotationConfigApplicationContext(InterpreterBeanConfig.class)) {
