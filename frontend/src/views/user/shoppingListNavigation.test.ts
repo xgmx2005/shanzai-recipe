@@ -11,7 +11,6 @@ function readPage(name: string) {
 describe('shopping list creation navigation', () => {
   it('uses the shared route helper in every page that creates shopping lists', () => {
     const pages = [
-      'RecommendView.vue',
       'RecipeDetailView.vue',
       'RecommendationHistoryView.vue',
       'FavoritesView.vue',
@@ -25,5 +24,12 @@ describe('shopping list creation navigation', () => {
         "path: '/user/shopping-lists'",
       )
     }
+  })
+
+  it('keeps the recommendation input page focused on creating a recommendation result', () => {
+    const source = readPage('RecommendView.vue')
+    expect(source).toContain('recommendationResultRoute')
+    expect(source).not.toContain('shoppingListRoute')
+    expect(source).not.toContain("path: '/user/shopping-lists'")
   })
 })

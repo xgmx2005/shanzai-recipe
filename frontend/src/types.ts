@@ -125,6 +125,8 @@ export interface RecommendedRecipe {
   calories: number
   protein: number
   imageUrl: string
+  matchedIngredients: string[]
+  missingIngredients: string[]
 }
 
 export interface RecommendationResponse {
@@ -210,7 +212,7 @@ export interface RecommendationHistorySummary {
 }
 
 export interface RecommendationHistoryDetail extends RecommendationHistorySummary {
-  recipes: Array<Pick<RecipeSummary, 'id' | 'name' | 'imageUrl' | 'calories' | 'protein'>>
+  recipes: RecommendedRecipe[]
   conversationContext?: RecommendationConversationContext | null
 }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, CalendarClock, ChefHat, Clock, Flame, ListChecks, Salad, Sparkles, UsersRound } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { createShoppingList } from '@/api/shopping'
@@ -11,6 +11,7 @@ import { replaceImageWithFallback, resolveRecipeImage } from '@/utils/assets'
 import { shoppingListRoute } from '@/utils/navigation'
 
 const message = useMessage()
+const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const detailLoading = ref(false)
@@ -54,7 +55,10 @@ async function load() {
   error.value = ''
   try {
     histories.value = await listRecommendationHistory()
-    if (latest.value) {
+    const requestedHistoryId = Number(route.query.historyId)
+    if (Number.isFinite(requestedHistoryId) && requestedHistoryId > 0) {
+      await openDetail(requestedHistoryId)
+    } else if (latest.value) {
       await openDetail(latest.value.id)
     }
   } catch (err) {
