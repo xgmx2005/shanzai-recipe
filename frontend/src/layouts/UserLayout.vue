@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bell, ChevronDown, Clock, Heart, Home, ListChecks, LogOut, Sparkles, UserRound } from '@lucide/vue'
+import { ChevronDown, Home, ListChecks, Sparkles } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -10,19 +10,33 @@ const auth = useAuthStore()
 
 const navItems = [
   { label: '首页', to: '/user/home', icon: Home },
-  { label: '健康档案', to: '/user/profile', icon: UserRound },
   { label: '智能推荐', to: '/user/recommend', icon: Sparkles },
   { label: '购物清单', to: '/user/shopping-lists', icon: ListChecks },
-  { label: '收藏菜谱', to: '/user/favorites', icon: Heart },
-  { label: '推荐历史', to: '/user/history', icon: Clock },
+]
+
+const accountMenuItems = [
+  { label: '健康档案', key: '/user/profile' },
+  { label: '收藏菜谱', key: '/user/favorites' },
+  { label: '推荐历史', key: '/user/history' },
+  { type: 'divider', key: 'divider' },
+  { label: '退出登录', key: 'logout' },
 ]
 
 const nickname = computed(() => auth.user?.nickname ?? '小膳用户')
+const avatarText = computed(() => nickname.value.slice(0, 1))
 const isHomePage = computed(() => route.name === 'user-home')
 
 function logout() {
   auth.logout()
   router.push('/login')
+}
+
+function handleAccountSelect(key: string) {
+  if (key === 'logout') {
+    logout()
+    return
+  }
+  router.push(key)
 }
 </script>
 
@@ -39,20 +53,16 @@ function logout() {
           <span>{{ item.label }}</span>
         </router-link>
       </nav>
-      <div class="user-menu">
-        <div class="avatar" aria-hidden="true">{{ nickname.slice(0, 1) }}</div>
-        <div class="user-copy">
-          <span>{{ nickname }}</span>
-          <small>日常健康</small>
-        </div>
-        <ChevronDown class="chevron" />
-        <button type="button" class="notice-button" aria-label="通知">
-          <Bell />
+      <n-dropdown trigger="click" :options="accountMenuItems" @select="handleAccountSelect">
+        <button type="button" class="user-menu" aria-label="打开用户菜单">
+          <span class="avatar" aria-hidden="true">{{ avatarText }}</span>
+          <span class="user-copy">
+            <span>{{ nickname }}</span>
+            <small>日常健康</small>
+          </span>
+          <ChevronDown class="chevron" />
         </button>
-        <button type="button" class="logout-button" aria-label="退出登录" @click="logout">
-          <LogOut />
-        </button>
-      </div>
+      </n-dropdown>
     </header>
     <main class="sz-page page-content" :class="{ 'is-home-page': isHomePage }">
       <router-view />
@@ -148,8 +158,22 @@ nav a.router-link-active::after {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  min-height: 48px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
   color: var(--sz-text);
+  background: transparent;
   font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.user-menu:hover {
+  border-color: rgba(35, 107, 75, 0.14);
+  background: rgba(220, 239, 228, 0.42);
 }
 
 .avatar {
@@ -181,34 +205,6 @@ nav a.router-link-active::after {
   width: 15px;
   height: 15px;
   color: var(--sz-muted);
-}
-
-.notice-button,
-.logout-button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 50%;
-  color: var(--sz-muted);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    color 0.18s ease,
-    background 0.18s ease;
-}
-
-.notice-button:hover,
-.logout-button:hover {
-  color: var(--sz-deep-green);
-  background: var(--sz-mint);
-}
-
-.notice-button svg,
-.logout-button svg {
-  width: 17px;
-  height: 17px;
 }
 
 .page-content {

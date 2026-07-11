@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { Bot, UserRound } from '@lucide/vue'
+import { Bot } from '@lucide/vue'
 import type { ConversationMessage } from '@/types'
 
-defineProps<{
+withDefaults(defineProps<{
   messages: ConversationMessage[]
   loading?: boolean
-}>()
+  userAvatarText?: string
+}>(), {
+  userAvatarText: '我',
+})
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('zh-CN', {
@@ -30,7 +33,7 @@ function formatTime(value: string) {
       :class="{ 'is-user': item.role === 'USER' }"
     >
       <span class="avatar">
-        <UserRound v-if="item.role === 'USER'" :size="17" />
+        <template v-if="item.role === 'USER'">{{ userAvatarText }}</template>
         <Bot v-else :size="17" />
       </span>
       <div class="bubble">
@@ -120,6 +123,8 @@ function formatTime(value: string) {
   border-radius: 50%;
   color: var(--sz-deep-green);
   background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .bubble {

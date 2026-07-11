@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { MessageCircleMore, RotateCcw, Sparkles } from '@lucide/vue'
+import { Bot, MessageCircleMore, RotateCcw, Sparkles } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import {
   confirmConversation,
@@ -13,12 +13,14 @@ import {
 import RecommendationComposer from '@/components/recommendation/RecommendationComposer.vue'
 import RecommendationConditionSummary from '@/components/recommendation/RecommendationConditionSummary.vue'
 import RecommendationMessageList from '@/components/recommendation/RecommendationMessageList.vue'
+import { useAuthStore } from '@/stores/auth'
 import type { ConversationResponse } from '@/types'
 import { recommendationResultRoute } from '@/utils/recommendationConversation'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const auth = useAuthStore()
 
 const loading = ref(true)
 const sending = ref(false)
@@ -27,6 +29,7 @@ const error = ref('')
 const conversation = ref<ConversationResponse | null>(null)
 const resumableConversation = ref<ConversationResponse | null>(null)
 const showResumeChoice = ref(false)
+const userAvatarText = computed(() => (auth.user?.nickname ?? auth.user?.username ?? '我').slice(0, 1))
 
 const contextReadyCount = computed(() => {
   const context = conversation.value?.context
@@ -193,7 +196,25 @@ onMounted(initialize)
       <n-skeleton v-if="loading && !conversation" text :repeat="5" />
 
       <template v-else-if="conversation">
-        <RecommendationMessageList :messages="conversation.messages" :loading="sending || confirming" />
+        <div v-if="conversation.messages.length === 0" class="agent-prompt">
+          <span class="agent-orb"><Bot :size="23" /></span>
+          <strong>先说说你今天想怎么吃</strong>
+          <p>例如：家里有鸡蛋、西兰花和牛肉，想吃清淡一点，20 分钟内做好。</p>
+        </div>
+
+        <RecommendationMessageList
+          v-else
+          :messages="conversation.messages"
+          :loading="sending || confirming"
+          :user-avatar-text="userAvatarText"
+        />
+
+        <RecommendationComposer
+          :quick-options="conversation.quickOptions"
+          :loading="sending || confirming"
+          @submit="submitMessage"
+          @restart="restart"
+        />
 
         <RecommendationConditionSummary
           :context="conversation.context"
@@ -202,13 +223,6 @@ onMounted(initialize)
           :confirming="confirming"
           @confirm="confirm"
           @edit="editConditions"
-        />
-
-        <RecommendationComposer
-          :quick-options="conversation.quickOptions"
-          :loading="sending || confirming"
-          @submit="submitMessage"
-          @restart="restart"
         />
       </template>
 
@@ -269,9 +283,79 @@ p {
 
 .conversation-shell {
   display: grid;
-  gap: 18px;
+  gap: 15px;
   padding: 24px;
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
+}
+
+.agent-prompt {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-height: 180px;
+  padding: 28px;
+  border: 1px dashed rgba(35, 107, 75, 0.24);
+  border-radius: 18px;
+  color: var(--sz-muted);
+  background: rgba(220, 239, 228, 0.34);
+  text-align: center;
+}
+
+.agent-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  box-shadow: 0 10px 22px rgba(35, 107, 75, 0.14);
+  animation: agent-float 2.2s ease-in-out infinite;
+}
+
+.agent-orb::after {
+  position: absolute;
+  inset: -8px;
+  border: 1px solid rgba(35, 107, 75, 0.14);
+  border-radius: inherit;
+  content: '';
+  animation: agent-pulse 2.2s ease-in-out infinite;
+}
+
+.agent-prompt strong {
+  color: var(--sz-evergreen);
+  font-size: 18px;
+}
+
+.agent-prompt p {
+  max-width: 420px;
+  color: var(--sz-muted);
+  line-height: 1.7;
+}
+
+@keyframes agent-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes agent-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
 }
 
 .conversation-status,

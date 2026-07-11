@@ -26,7 +26,7 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
 </script>
 
 <template>
-  <aside class="condition-summary">
+  <aside class="condition-summary compact-summary">
     <div class="summary-head">
       <p class="sz-chip"><Sparkles :size="15" /> 已理解条件</p>
       <button type="button" @click="emit('edit')">修改条件</button>
@@ -83,10 +83,10 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
 <style scoped>
 .condition-summary {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 11px;
+  padding: 14px;
   border: 1px solid rgba(223, 210, 191, 0.9);
-  border-radius: 18px;
+  border-radius: 15px;
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
 }
 
@@ -116,9 +116,9 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
 
 .summary-grid article {
   display: grid;
-  gap: 7px;
-  min-height: 78px;
-  padding: 11px;
+  gap: 5px;
+  min-height: 58px;
+  padding: 9px 10px;
   border: 1px solid rgba(223, 210, 191, 0.76);
   border-radius: 13px;
   background: rgba(255, 253, 247, 0.82);
@@ -141,7 +141,7 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
 
 section {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tag-list {
@@ -152,8 +152,8 @@ section {
 
 .tag-list span,
 .tag-list strong {
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: 26px;
+  padding: 4px 9px;
   border-radius: var(--sz-radius-pill);
   color: var(--sz-deep-green);
   background: var(--sz-mint);
@@ -191,7 +191,7 @@ section {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: 38px;
   border: 0;
   border-radius: 12px;
   color: #ffffff;
