@@ -47,7 +47,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     private static final List<String> SEPARATORS = List.of("，", "、", "。", "；", ";", "和", "及", "以及");
     private static final Map<String, String> FOOD_ALIASES = aliases();
     private static final Set<String> AI_NAME_PLACEHOLDERS = Set.of(
-            "abc", "foobar", "unknown", "none", "测试", "测试东西", "未知", "未知食材", "随便"
+            "abc", "foobar", "unknown", "none", "测试", "测试东西", "测试食材", "未知", "未知食材", "随便"
     );
     private static final List<String> FOOD_TERMS = FOOD_ALIASES.keySet().stream()
             .sorted(Comparator.comparingInt(String::length).reversed())
@@ -155,9 +155,9 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             addValidatedIngredient(ingredients, conflicts, ingredient);
         }
 
-        List<String> excluded = normalizedNames(candidate.excludedIngredients());
+        List<String> excluded = normalizedAiRestrictionNames(candidate.excludedIngredients(), conflicts);
         addUniqueAll(excluded, localRelevant ? local.excludedIngredients() : List.of());
-        List<String> allergies = normalizedNames(candidate.allergyIngredients());
+        List<String> allergies = normalizedAiRestrictionNames(candidate.allergyIngredients(), conflicts);
         addUniqueAll(allergies, localRelevant ? local.allergyIngredients() : List.of());
         removeRestrictedIngredients(ingredients, excluded, allergies);
         boolean aiExplicitNoRestriction = candidate.relevant()
@@ -377,7 +377,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         while (exclusion.find()) {
             int end = restrictionBoundary(searchable, exclusion.end());
             String phrase = searchable.substring(exclusion.end(), end);
-            for (String term : phrase.split("和|及|以及|\\s+")) {
+            for (String term : phrase.split("、|和|及|以及|\\s+")) {
                 addRestrictionTerm(excluded, term);
             }
         }
@@ -397,7 +397,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         int end = text.length();
         for (int index = start; index < text.length(); index++) {
             char character = text.charAt(index);
-            if ("，、。；;！？!?".indexOf(character) >= 0) {
+            if ("，。；;！？!?".indexOf(character) >= 0) {
                 end = index;
                 break;
             }
@@ -493,13 +493,20 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         }
     }
 
-    private List<String> normalizedNames(List<String> values) {
+    private List<String> normalizedAiRestrictionNames(List<String> values, List<String> conflicts) {
         List<String> result = new ArrayList<>();
         if (values != null) {
             for (String value : values) {
-                if (value != null && !value.isBlank()) {
-                    addUnique(result, normalizeName(value));
+                if (value == null || value.isBlank()) {
+                    addUnique(conflicts, "食材名称无效");
+                    continue;
                 }
+                String name = normalizeName(value);
+                if (!hasMeaningfulAiIngredientName(name)) {
+                    addUnique(conflicts, "食材名称无效");
+                    continue;
+                }
+                addUnique(result, name);
             }
         }
         return result;

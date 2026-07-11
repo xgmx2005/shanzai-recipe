@@ -233,6 +233,22 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void filtersMeaninglessAiRestrictionNamesButKeepsLegalValues() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiMixedRestrictionResponse(), MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.RESTRICTIONS, "我有一些饮食限制", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertEquals(List.of("花生"), analysis.excludedIngredients());
+        assertEquals(List.of("坚果"), analysis.allergyIngredients());
+        assertTrue(analysis.conflicts().contains("食材名称无效"));
+    }
+
+    @Test
     void preservesAiOnlyExplicitNoRestrictionAnswer() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -336,6 +352,17 @@ class HttpConversationAnswerInterpreterTest {
                 {
                   "choices": [{
                     "message": {"content": "{\\"relevant\\":true,\\"intentText\\":null,\\"dietGoal\\":null,\\"availableIngredients\\":[],\\"excludedIngredients\\":[],\\"allergyIngredients\\":[],\\"cookingTime\\":null,\\"servings\\":null,\\"unknownTerms\\":[],\\"conflicts\\":[],\\"confidence\\":0.9,\\"restrictionsAnswered\\":true}"
+                    }
+                  }]
+                }
+                """;
+    }
+
+    private String aiMixedRestrictionResponse() {
+        return """
+                {
+                  "choices": [{
+                    "message": {"content": "{\\"relevant\\":true,\\"intentText\\":null,\\"dietGoal\\":null,\\"availableIngredients\\":[],\\"excludedIngredients\\":[\\"@@@\\",\\"花生\\",\\"测试食材\\",\\"abc\\"],\\"allergyIngredients\\":[\\"坚果\\",\\"unknown\\",\\"none\\",\\"随便\\"],\\"cookingTime\\":null,\\"servings\\":null,\\"unknownTerms\\":[],\\"conflicts\\":[],\\"confidence\\":0.9,\\"restrictionsAnswered\\":true}"
                     }
                   }]
                 }

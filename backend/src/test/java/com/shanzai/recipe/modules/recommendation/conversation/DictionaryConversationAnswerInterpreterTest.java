@@ -135,6 +135,17 @@ class DictionaryConversationAnswerInterpreterTest {
     }
 
     @Test
+    void splitsExcludedIngredientsSeparatedByEnumerationComma() {
+        ConversationAnswerAnalysis analysis = interpreter.interpret(
+                ConversationStage.RESTRICTIONS,
+                "不吃鸡蛋、牛奶",
+                RecommendationConversationContext.empty());
+
+        assertEquals(List.of("鸡蛋", "牛奶"), analysis.excludedIngredients());
+        assertTrue(analysis.availableIngredients().isEmpty());
+    }
+
+    @Test
     void bindsTheNearestQuantityInAContinuousIngredientExpression() {
         ConversationAnswerAnalysis analysis = interpreter.interpret(
                 ConversationStage.INGREDIENTS, "100克鸡胸肉200克鸡蛋", RecommendationConversationContext.empty());
