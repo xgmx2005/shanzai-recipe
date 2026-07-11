@@ -59,6 +59,22 @@ class DictionaryConversationAnswerInterpreterTest {
     }
 
     @Test
+    void treatsDishWordAsIntentInsteadOfVagueIngredient() {
+        ConversationAnswerAnalysis recommendation = interpreter.interpret(
+                ConversationStage.INTENT, "推荐一道清淡的菜", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis craving = interpreter.interpret(
+                ConversationStage.INTENT, "我想吃点清淡的菜", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis ingredients = interpreter.interpret(
+                ConversationStage.INGREDIENTS, "有肉和菜", RecommendationConversationContext.empty());
+
+        assertTrue(recommendation.relevant());
+        assertTrue(recommendation.unknownTerms().isEmpty());
+        assertTrue(craving.relevant());
+        assertTrue(craving.unknownTerms().isEmpty());
+        assertEquals(List.of("肉", "菜"), ingredients.unknownTerms());
+    }
+
+    @Test
     void isolatesVagueTermsAndMarksOnlyExplicitRestrictionAnswers() {
         ConversationAnswerAnalysis vague = interpreter.interpret(
                 ConversationStage.INGREDIENTS, "有肉和菜", RecommendationConversationContext.empty());

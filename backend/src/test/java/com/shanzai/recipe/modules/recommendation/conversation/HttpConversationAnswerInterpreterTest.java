@@ -148,6 +148,25 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void aiOnlyIngredientResolvesPreviousQuantityConflict() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiOnlyResponse(), MediaType.APPLICATION_JSON));
+
+        RecommendationConversationContext blocked = new RecommendationConversationContext(
+                null, null, List.of(), List.of(), List.of(), null, null, List.of(),
+                List.of("紫甘蓝数量无效"), false);
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "紫甘蓝", blocked);
+
+        server.verify();
+        assertEquals(new BigDecimal("200"), analysis.availableIngredients().get(0).quantity());
+        assertEquals("g", analysis.availableIngredients().get(0).unit());
+        assertTrue(analysis.conflicts().isEmpty());
+    }
+
+    @Test
     void hardRejectsSymbolsEvenWhenAiReturnsValidFields() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -302,7 +321,8 @@ class HttpConversationAnswerInterpreterTest {
                 new ObjectMapper(),
                 "http://localhost",
                 apiKey,
-                "test-model"
+                "test-model",
+                new DictionaryConversationAnswerInterpreter()
         );
     }
 

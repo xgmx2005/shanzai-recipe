@@ -84,7 +84,8 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             }
         }
 
-        List<String> unknown = new ArrayList<>(findVagueTerms(text, occurrences));
+        List<String> unknown = stage == ConversationStage.INGREDIENTS
+                ? new ArrayList<>(findVagueTerms(text, occurrences)) : new ArrayList<>();
         List<String> excluded = new ArrayList<>();
         List<String> allergies = new ArrayList<>();
         RestrictionTerms specificRestrictions = findSpecificRestrictions(text);
@@ -178,7 +179,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
                 context == null ? List.of() : context.conflicts(),
                 candidateConflicts,
                 content,
-                localRelevant ? local.availableIngredients() : List.of()
+                ingredients
         );
         conflicts = new ArrayList<>(localConflicts);
         addUniqueAll(conflicts, aiConflicts);

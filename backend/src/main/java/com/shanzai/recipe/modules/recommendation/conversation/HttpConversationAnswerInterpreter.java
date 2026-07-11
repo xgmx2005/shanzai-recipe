@@ -45,20 +45,7 @@ public class HttpConversationAnswerInterpreter implements ConversationAnswerInte
             @Value("${app.deepseek.api-key:}") String apiKey,
             @Value("${app.deepseek.model:deepseek-v4-flash}") String model,
             @Value("${app.deepseek.connect-timeout:2s}") Duration connectTimeout,
-            @Value("${app.deepseek.read-timeout:8s}") Duration readTimeout
-    ) {
-        this(restClientBuilder, objectMapper, baseUrl, apiKey, model, connectTimeout, readTimeout,
-                new DictionaryConversationAnswerInterpreter());
-    }
-
-    HttpConversationAnswerInterpreter(
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            String baseUrl,
-            String apiKey,
-            String model,
-            Duration connectTimeout,
-            Duration readTimeout,
+            @Value("${app.deepseek.read-timeout:8s}") Duration readTimeout,
             DictionaryConversationAnswerInterpreter dictionary
     ) {
         this.restClient = restClientBuilder
@@ -90,13 +77,14 @@ public class HttpConversationAnswerInterpreter implements ConversationAnswerInte
             ObjectMapper objectMapper,
             String baseUrl,
             String apiKey,
-            String model
+            String model,
+            DictionaryConversationAnswerInterpreter dictionary
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model;
-        this.dictionary = new DictionaryConversationAnswerInterpreter();
+        this.dictionary = dictionary;
     }
 
     @Override
