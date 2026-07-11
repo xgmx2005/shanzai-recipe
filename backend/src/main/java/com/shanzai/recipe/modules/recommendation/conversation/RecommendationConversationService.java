@@ -217,8 +217,14 @@ public class RecommendationConversationService {
     }
 
 
-    @Transactional
     public ConversationResponse patchContext(Long userId, Long conversationId, ConversationContextPatchRequest request) {
+        synchronized (lockForConversation(conversationId)) {
+            return Objects.requireNonNull(transactionTemplate.execute(
+                    status -> patchContextLocked(userId, conversationId, request)));
+        }
+    }
+
+    private ConversationResponse patchContextLocked(Long userId, Long conversationId, ConversationContextPatchRequest request) {
         RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
         if (ConversationStatus.COMPLETED.name().equals(conversation.getStatus())
                 || ConversationStatus.CANCELLED.name().equals(conversation.getStatus())) {
@@ -233,7 +239,7 @@ public class RecommendationConversationService {
                 request.allergyIngredients() == null ? current.allergyIngredients() : request.allergyIngredients(),
                 request.cookingTime() == null ? current.cookingTime() : request.cookingTime(),
                 request.servings() == null ? current.servings() : request.servings(),
-                current.unknownTerms(),
+                resolvePatchUnknownTerms(current.unknownTerms(), request),
                 resolvePatchConflicts(
                         current.conflicts(),
                         request.availableIngredients(),
@@ -263,7 +269,7 @@ public class RecommendationConversationService {
     }
 
     private RecommendationResponse confirmLocked(Long userId, Long conversationId) {
-        RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
+        RecommendationConversationEntity conversation = requireConversationForUpdate(userId, conversationId);
         ConversationStatus status = ConversationStatus.valueOf(conversation.getStatus());
         if (status == ConversationStatus.COMPLETED) {
             return historyService.getRecommendationResponse(userId, conversation.getRecommendationHistoryId());
@@ -315,6 +321,26 @@ public class RecommendationConversationService {
         return conflicts;
     }
 
+    private List<String> resolvePatchUnknownTerms(
+            List<String> currentUnknownTerms,
+            ConversationContextPatchRequest request
+    ) {
+        if (request == null || !hasAnyPatchField(request)) {
+            return currentUnknownTerms == null ? List.of() : currentUnknownTerms;
+        }
+        return List.of();
+    }
+
+    private boolean hasAnyPatchField(ConversationContextPatchRequest request) {
+        return request.intentText() != null
+                || request.dietGoal() != null
+                || request.availableIngredients() != null
+                || request.excludedIngredients() != null
+                || request.allergyIngredients() != null
+                || request.cookingTime() != null
+                || request.servings() != null;
+    }
+
     private boolean invalidDietGoalPatch(String value) {
         if (value == null || value.isBlank()) {
             return false;
@@ -358,6 +384,14 @@ public class RecommendationConversationService {
     private RecommendationConversationEntity requireConversation(Long userId, Long conversationId) {
         RecommendationConversationEntity conversation = conversationMapper.selectById(conversationId);
         if (conversation == null || !Objects.equals(userId, conversation.getUserId())) {
+            throw new BusinessException("推荐对话不存在");
+        }
+        return conversation;
+    }
+
+    private RecommendationConversationEntity requireConversationForUpdate(Long userId, Long conversationId) {
+        RecommendationConversationEntity conversation = conversationMapper.selectOwnedByIdForUpdate(conversationId, userId);
+        if (conversation == null) {
             throw new BusinessException("推荐对话不存在");
         }
         return conversation;

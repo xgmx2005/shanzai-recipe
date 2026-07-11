@@ -294,7 +294,7 @@ class RecommendationConversationServiceTest {
     @Test
     void confirmRejectsConversationThatIsNotReadyToConfirm() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.confirm(7L, 10L));
@@ -321,7 +321,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
         RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
         when(recommendationService.recommend(any(), any())).thenReturn(expected);
 
@@ -346,7 +346,7 @@ class RecommendationConversationServiceTest {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setStatus(ConversationStatus.COMPLETED.name());
         conversation.setRecommendationHistoryId(99L);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
         RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
         when(historyService.getRecommendationResponse(7L, 99L)).thenReturn(expected);
 
@@ -469,6 +469,67 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
+    void patchContextWithCorrectedFieldsClearsPreviousUnknownTerms() throws Exception {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                "FAT_LOSS",
+                List.of(new AvailableIngredientInput("鸡胸肉", null, null, false)),
+                List.of(),
+                List.of(),
+                30,
+                2,
+                List.of("藜麦"),
+                List.of(),
+                true
+        );
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+
+        ConversationResponse response = service.patchContext(
+                7L,
+                10L,
+                new ConversationContextPatchRequest(
+                        "清淡晚餐",
+                        "FAT_LOSS",
+                        List.of(new AvailableIngredientInput("鸡胸肉", null, null, false)),
+                        List.of(),
+                        List.of(),
+                        30,
+                        2
+                )
+        );
+
+        assertEquals(ConversationStatus.READY_TO_CONFIRM, response.status());
+        assertEquals(List.of(), response.context().unknownTerms());
+    }
+
+    @Test
+    void patchContextRunsInsideConversationLockAndExplicitTransactionTemplate() throws Exception {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+
+        Object lock = service.lockForConversation(10L);
+        Thread worker;
+        synchronized (lock) {
+            worker = new Thread(() -> service.patchContext(
+                    7L,
+                    10L,
+                    new ConversationContextPatchRequest("清淡晚餐", null, null, null, null, null, null)
+            ));
+            worker.start();
+            Thread.sleep(100);
+            assertTrue(worker.isAlive());
+            assertEquals(0, transactionManager.beginCount());
+        }
+        worker.join(3000);
+        assertEquals(1, transactionManager.beginCount());
+        assertEquals(1, transactionManager.commitCount());
+    }
+
+    @Test
     void thirdInvalidMessageExposesRestartQuickOption() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setInvalidAnswerCount(2);
@@ -513,7 +574,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.confirm(7L, 10L));
@@ -540,7 +601,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
         when(recommendationService.recommend(any(), any()))
                 .thenReturn(new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of()));
 
@@ -556,6 +617,7 @@ class RecommendationConversationServiceTest {
         worker.join(3000);
         assertEquals(1, transactionManager.beginCount());
         assertEquals(1, transactionManager.commitCount());
+        verify(conversationMapper).selectOwnedByIdForUpdate(10L, 7L);
     }
     private RecommendationConversationEntity activeConversation(Long id, Long userId) {
         RecommendationConversationEntity entity = new RecommendationConversationEntity();
