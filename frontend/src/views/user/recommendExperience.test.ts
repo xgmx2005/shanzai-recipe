@@ -74,8 +74,15 @@ describe('recommendation conversation experience', () => {
 
   it('shows a lightweight generation transition before navigating to recommendation results', () => {
     expect(recommendSource).toContain('generationStepItems')
+    expect(recommendSource).toContain('generationActiveStep')
+    expect(recommendSource).toContain('generationConditionSummary')
+    expect(recommendSource).toContain('generationComplete')
+    expect(recommendSource).toContain('advanceGenerationSteps')
     expect(recommendSource).toContain('generation-overlay')
     expect(recommendSource).toContain('generation-card')
+    expect(recommendSource).toContain('generation-stage')
+    expect(recommendSource).toContain('正在为你规划这一餐')
+    expect(recommendSource).toContain('已生成，正在打开推荐结果')
     expect(recommendSource).toContain('await sleep(650)')
     expect(recommendSource.indexOf('await sleep(650)')).toBeLessThan(
       recommendSource.indexOf('recommendationResultRoute(result.historyId)'),

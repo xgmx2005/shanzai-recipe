@@ -34,7 +34,14 @@ const showResumeChoice = ref(false)
 const pendingUserMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantContent = ref('')
-const generationStepItems = ['整理已理解条件', '匹配知识库菜谱', '生成推荐说明']
+const generationStepItems = [
+  { label: '理解饮食目标', detail: '读取健康档案和本次口味偏好' },
+  { label: '匹配知识库菜谱', detail: '筛选可用食材与烹饪时间' },
+  { label: '生成推荐理由', detail: '整理营养亮点和执行建议' },
+]
+const generationActiveStep = ref(0)
+const generationComplete = ref(false)
+const generationRunId = ref(0)
 const agentThinking = computed(() => sending.value && !streamingAssistantMessage.value)
 const userAvatarText = computed(() => (auth.user?.nickname ?? auth.user?.username ?? '我').slice(0, 1))
 const canGenerateRecommendation = computed(() => {
@@ -44,6 +51,14 @@ const canGenerateRecommendation = computed(() => {
     && current.showConfirmation
     && current.context.unknownTerms.length === 0
     && current.context.conflicts.length === 0
+})
+const generationConditionSummary = computed(() => {
+  const context = conversation.value?.context
+  if (!context) return '正在读取本次条件'
+  const ingredients = context.availableIngredients.map((item) => item.name).slice(0, 3).join('、') || '待确认食材'
+  const time = context.cookingTime ? `${context.cookingTime} 分钟内` : '时间待确认'
+  const servings = context.servings ? `${context.servings} 人份` : '人数待确认'
+  return `${ingredients} · ${time} · ${servings}`
 })
 
 const displayMessages = computed(() => {
@@ -155,6 +170,15 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
+async function advanceGenerationSteps(runId: number) {
+  generationComplete.value = false
+  for (let index = 0; index < generationStepItems.length; index += 1) {
+    if (runId !== generationRunId.value) return
+    generationActiveStep.value = index
+    await sleep(index === 0 ? 220 : 380)
+  }
+}
+
 async function streamAssistantContent(content: string) {
   const chars = Array.from(content)
   const chunkSize = chars.length > 220 ? 4 : chars.length > 120 ? 3 : 2
@@ -213,16 +237,27 @@ async function confirm() {
   if (!conversation.value || confirming.value) return
   confirming.value = true
   error.value = ''
+  generationRunId.value += 1
+  const runId = generationRunId.value
+  generationActiveStep.value = 0
+  generationComplete.value = false
+  const generationAnimation = advanceGenerationSteps(runId)
   try {
     const result = await confirmConversation(conversation.value.id)
+    await generationAnimation
+    if (runId !== generationRunId.value) return
+    generationComplete.value = true
     message.success('推荐已生成')
     await sleep(650)
     await router.push(recommendationResultRoute(result.historyId))
   } catch (err) {
+    generationRunId.value += 1
     error.value = err instanceof Error ? err.message : '生成推荐失败'
     message.error(error.value)
   } finally {
     confirming.value = false
+    generationComplete.value = false
+    generationActiveStep.value = 0
   }
 }
 
@@ -276,13 +311,25 @@ onMounted(initialize)
     <section v-else class="conversation-shell sz-panel">
       <div v-if="confirming" class="generation-overlay" aria-live="polite">
         <div class="generation-card">
-          <span class="generation-orb"><Sparkles :size="24" /></span>
-          <strong>正在生成你的这一餐</strong>
-          <p>膳哉正在结合条件、健康档案和知识库菜谱，马上进入推荐结果。</p>
-          <div class="generation-steps">
-            <span v-for="item in generationStepItems" :key="item">
+          <div class="generation-core">
+            <span class="generation-orb"><Sparkles :size="24" /></span>
+            <span class="generation-ring" />
+          </div>
+          <p class="generation-kicker">膳哉 Agent</p>
+          <strong>{{ generationComplete ? '已生成，正在打开推荐结果' : '正在为你规划这一餐' }}</strong>
+          <p>{{ generationConditionSummary }}</p>
+          <div class="generation-stage">
+            <span
+              v-for="(item, index) in generationStepItems"
+              :key="item.label"
+              :class="{
+                active: index === generationActiveStep && !generationComplete,
+                complete: index < generationActiveStep || generationComplete,
+              }"
+            >
               <CheckCircle2 :size="15" />
-              {{ item }}
+              <em>{{ item.label }}</em>
+              <small>{{ item.detail }}</small>
             </span>
           </div>
         </div>
@@ -420,20 +467,31 @@ p {
 .generation-card {
   display: grid;
   justify-items: center;
-  gap: 12px;
-  width: min(420px, 100%);
-  padding: 26px;
+  gap: 11px;
+  width: min(480px, 100%);
+  padding: 30px;
   border: 1px solid rgba(35, 107, 75, 0.16);
-  border-radius: 20px;
+  border-radius: 22px;
   color: var(--sz-text);
-  background: rgba(255, 253, 247, 0.96);
+  background:
+    linear-gradient(135deg, rgba(255, 253, 247, 0.98), rgba(239, 249, 243, 0.96)),
+    rgba(255, 253, 247, 0.96);
   box-shadow: 0 22px 45px rgba(31, 77, 58, 0.14);
   text-align: center;
   animation: generation-card-rise 0.24s ease-out both;
 }
 
+.generation-core {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+}
+
 .generation-orb {
   position: relative;
+  z-index: 2;
   display: grid;
   place-items: center;
   width: 58px;
@@ -444,44 +502,82 @@ p {
   box-shadow: 0 14px 28px rgba(35, 107, 75, 0.22);
 }
 
-.generation-orb::after {
+.generation-ring {
   position: absolute;
-  inset: -8px;
-  border: 1px solid rgba(35, 107, 75, 0.18);
-  border-radius: inherit;
-  content: '';
-  animation: generation-pulse 1.25s ease-in-out infinite;
+  inset: 2px;
+  border: 1px solid rgba(35, 107, 75, 0.17);
+  border-top-color: var(--sz-green-dark);
+  border-radius: 50%;
+  animation: generation-spin 1.4s linear infinite;
+}
+
+.generation-kicker {
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .generation-card strong {
   color: var(--sz-evergreen);
-  font-size: 20px;
+  font-size: 22px;
 }
 
-.generation-card p {
+.generation-card > p:not(.generation-kicker) {
   max-width: 330px;
   color: var(--sz-muted);
   line-height: 1.7;
 }
 
-.generation-steps {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+.generation-stage {
+  display: grid;
   gap: 8px;
+  width: 100%;
+  margin-top: 3px;
 }
 
-.generation-steps span {
-  display: inline-flex;
+.generation-stage span {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 2px 8px;
   align-items: center;
-  gap: 5px;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: var(--sz-radius-pill);
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid rgba(35, 107, 75, 0.08);
+  border-radius: 14px;
   color: var(--sz-deep-green);
-  background: var(--sz-mint);
+  background: rgba(255, 253, 247, 0.7);
+  text-align: left;
+  opacity: 0.62;
+  transition: border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.generation-stage span.active,
+.generation-stage span.complete {
+  border-color: rgba(35, 107, 75, 0.18);
+  background: rgba(220, 239, 228, 0.72);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.generation-stage svg {
+  grid-row: 1 / span 2;
+  color: var(--sz-green-dark);
+}
+
+.generation-stage em {
+  font-style: normal;
   font-size: 13px;
   font-weight: 900;
+}
+
+.generation-stage small {
+  color: var(--sz-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 @keyframes generation-fade-in {
@@ -506,16 +602,9 @@ p {
   }
 }
 
-@keyframes generation-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.94);
-  }
-
-  50% {
-    opacity: 0.95;
-    transform: scale(1.08);
+@keyframes generation-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
