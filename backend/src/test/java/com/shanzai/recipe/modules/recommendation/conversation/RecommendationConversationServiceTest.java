@@ -86,20 +86,24 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
-    void restartConversationCancelsExistingIncompleteConversationBeforeCreatingNewOne() {
-        RecommendationConversationEntity replacedConversation = activeConversation(11L, 7L);
-        when(conversationMapper.selectList(any())).thenReturn(List.of(replacedConversation));
+    void restartConversationCancelsAllExistingIncompleteConversationsBeforeCreatingNewOne() {
+        RecommendationConversationEntity activeConversation = activeConversation(11L, 7L);
+        RecommendationConversationEntity readyToConfirmConversation = activeConversation(12L, 7L);
+        readyToConfirmConversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
+        when(conversationMapper.selectList(any())).thenReturn(List.of(activeConversation, readyToConfirmConversation));
         when(conversationMapper.insert(any(RecommendationConversationEntity.class))).thenAnswer(invocation -> {
             RecommendationConversationEntity entity = invocation.getArgument(0);
-            entity.setId(12L);
+            entity.setId(13L);
             return 1;
         });
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         service.startConversation(7L, true);
 
-        assertEquals("CANCELLED", replacedConversation.getStatus());
-        verify(conversationMapper).updateById(replacedConversation);
+        assertEquals("CANCELLED", activeConversation.getStatus());
+        assertEquals("CANCELLED", readyToConfirmConversation.getStatus());
+        verify(conversationMapper).updateById(activeConversation);
+        verify(conversationMapper).updateById(readyToConfirmConversation);
     }
 
     @Test

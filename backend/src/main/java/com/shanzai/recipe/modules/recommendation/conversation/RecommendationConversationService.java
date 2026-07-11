@@ -57,10 +57,7 @@ public class RecommendationConversationService {
     @Transactional
     public ConversationResponse startConversation(Long userId, boolean restart) {
         if (restart) {
-            findActiveConversation(userId).ifPresent(existing -> {
-                existing.setStatus(ConversationStatus.CANCELLED.name());
-                conversationMapper.updateById(existing);
-            });
+            cancelIncompleteConversations(userId);
         }
 
         RecommendationConversationEntity conversation = new RecommendationConversationEntity();
@@ -81,6 +78,21 @@ public class RecommendationConversationService {
                 false,
                 quickOptionsFor(ConversationStage.INTENT, ConversationStatus.ACTIVE)
         );
+    }
+
+    private void cancelIncompleteConversations(Long userId) {
+        findIncompleteConversations(userId).forEach(existing -> {
+            existing.setStatus(ConversationStatus.CANCELLED.name());
+            conversationMapper.updateById(existing);
+        });
+    }
+
+    private List<RecommendationConversationEntity> findIncompleteConversations(Long userId) {
+        return conversationMapper.selectList(new LambdaQueryWrapper<RecommendationConversationEntity>()
+                .eq(RecommendationConversationEntity::getUserId, userId)
+                .in(RecommendationConversationEntity::getStatus,
+                        ConversationStatus.ACTIVE.name(),
+                        ConversationStatus.READY_TO_CONFIRM.name()));
     }
 
     @Transactional
