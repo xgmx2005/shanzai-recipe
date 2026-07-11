@@ -21,6 +21,7 @@ CREATE TABLE `user` (
     username VARCHAR(50) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     nickname VARCHAR(50) NOT NULL,
+    avatar_theme VARCHAR(30) NOT NULL DEFAULT 'leaf',
     role VARCHAR(20) NOT NULL,
     status TINYINT NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

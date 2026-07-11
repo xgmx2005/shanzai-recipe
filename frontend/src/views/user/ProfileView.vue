@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CheckCircle2, ChefHat, Clock3, Flame, HeartPulse, Save, Scale, ShieldCheck, SlidersHorizontal, UserRound } from '@lucide/vue'
+import { CheckCircle2, ChefHat, Clock3, Flame, HeartPulse, Palette, Save, Scale, ShieldCheck, SlidersHorizontal, UserRound } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import GoalSegment from '@/components/GoalSegment.vue'
 import HealthSummaryCard from '@/components/HealthSummaryCard.vue'
@@ -11,10 +11,19 @@ import type { DietGoal, Profile, ProfileRequest } from '@/types'
 const auth = useAuthStore()
 const message = useMessage()
 const saving = ref(false)
+const accountSaving = ref(false)
 const loading = ref(true)
 const error = ref('')
 const saveSuccess = ref(false)
+const accountSaveSuccess = ref(false)
 const genderOptions = ['女', '男'] as const
+const avatarOptions = [
+  { label: '青叶', value: 'leaf' },
+  { label: '薄荷', value: 'mint' },
+  { label: '番茄', value: 'tomato' },
+  { label: '谷物', value: 'grain' },
+  { label: '湖蓝', value: 'blue' },
+]
 const goalLabels: Record<DietGoal, string> = {
   FAT_LOSS: '减脂控热量',
   BALANCED: '日常健康',
@@ -32,6 +41,21 @@ const form = reactive<ProfileRequest>({
   allergyIngredients: [...auth.profile.allergyIngredients],
   cookingTimePreference: auth.profile.cookingTimePreference,
 })
+
+const accountForm = reactive({
+  username: auth.user?.username ?? '',
+  nickname: auth.user?.nickname ?? '',
+  avatarTheme: auth.user?.avatarTheme ?? 'leaf',
+})
+
+const accountAvatarText = computed(() => (accountForm.nickname || accountForm.username || '膳').slice(0, 1))
+const accountAvatarClass = computed(() => `theme-${accountForm.avatarTheme}`)
+
+function syncAccountForm() {
+  accountForm.username = auth.user?.username ?? ''
+  accountForm.nickname = auth.user?.nickname ?? ''
+  accountForm.avatarTheme = auth.user?.avatarTheme ?? 'leaf'
+}
 
 function applyProfile(profile: Profile) {
   Object.assign(form, {
@@ -104,10 +128,40 @@ async function save() {
   }
 }
 
+async function saveAccount() {
+  error.value = ''
+  accountSaveSuccess.value = false
+  const username = accountForm.username.trim()
+  const nickname = accountForm.nickname.trim()
+  if (!username || !nickname) {
+    message.warning('用户名和显示名称不能为空')
+    return
+  }
+
+  accountSaving.value = true
+  try {
+    await auth.updateAccount({
+      username,
+      nickname,
+      avatarTheme: accountForm.avatarTheme,
+    })
+    syncAccountForm()
+    accountSaveSuccess.value = true
+    message.success('账号资料已保存')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '保存账号资料失败'
+    message.error(error.value)
+  } finally {
+    accountSaving.value = false
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   error.value = ''
   try {
+    await auth.initSession()
+    syncAccountForm()
     const profile = await auth.loadProfile()
     applyProfile(profile)
     Object.assign(previewProfile, profile)
@@ -155,6 +209,13 @@ onMounted(async () => {
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+    <article v-if="accountSaveSuccess" class="save-success" role="status" aria-live="polite">
+      <CheckCircle2 :size="22" />
+      <div>
+        <strong>账号资料已更新</strong>
+        <span>右上角头像和对话头像会同步使用新的显示名称与头像主题。</span>
+      </div>
+    </article>
     <article v-if="saveSuccess" class="save-success" role="status" aria-live="polite">
       <CheckCircle2 :size="22" />
       <div>
@@ -162,6 +223,46 @@ onMounted(async () => {
         <span>健康档案已更新，新的推荐会使用这份最新信息。</span>
       </div>
     </article>
+
+    <section class="account-panel sz-panel">
+      <div class="account-preview">
+        <span class="account-avatar" :class="accountAvatarClass">{{ accountAvatarText }}</span>
+        <div>
+          <p class="sz-chip"><Palette :size="15" /> 账号资料</p>
+          <h2>{{ accountForm.nickname || '设置显示名称' }}</h2>
+          <span>@{{ accountForm.username || 'username' }}</span>
+        </div>
+      </div>
+
+      <form class="account-form" @submit.prevent="saveAccount">
+        <label>
+          <span>用户名</span>
+          <n-input v-model:value="accountForm.username" placeholder="用于登录和账号识别" />
+        </label>
+        <label>
+          <span>显示名称</span>
+          <n-input v-model:value="accountForm.nickname" placeholder="显示在右上角和对话头像中" />
+        </label>
+        <section class="avatar-picker">
+          <span>头像主题</span>
+          <div>
+            <button
+              v-for="item in avatarOptions"
+              :key="item.value"
+              type="button"
+              :class="[`theme-${item.value}`, { active: accountForm.avatarTheme === item.value }]"
+              @click="accountForm.avatarTheme = item.value"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </section>
+        <button class="account-save-button" type="submit" :disabled="accountSaving">
+          <Save :size="17" />
+          {{ accountSaving ? '正在保存账号资料' : '保存账号资料' }}
+        </button>
+      </form>
+    </section>
 
     <section class="profile-grid">
       <form class="profile-form sz-panel" @submit.prevent="save">
@@ -428,6 +529,183 @@ h1 {
   align-items: start;
 }
 
+.account-panel {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.28fr);
+  gap: 18px;
+  align-items: center;
+  padding: 22px;
+}
+
+.account-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.account-preview > div {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.account-preview h2 {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-preview span:not(.account-avatar) {
+  color: var(--sz-muted);
+  font-weight: 800;
+}
+
+.account-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 1px solid rgba(255, 250, 241, 0.58);
+  border-radius: 24px;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 900;
+  box-shadow: 0 16px 26px rgba(23, 37, 31, 0.16);
+}
+
+.account-avatar.theme-leaf,
+.avatar-picker button.theme-leaf::before {
+  background: linear-gradient(135deg, #236b4b, #7fa05a);
+}
+
+.account-avatar.theme-mint,
+.avatar-picker button.theme-mint::before {
+  background: linear-gradient(135deg, #48a86a, #a9d8bc);
+}
+
+.account-avatar.theme-tomato,
+.avatar-picker button.theme-tomato::before {
+  background: linear-gradient(135deg, #d95d45, #ffb09d);
+}
+
+.account-avatar.theme-grain,
+.avatar-picker button.theme-grain::before {
+  background: linear-gradient(135deg, #b98945, #f0d494);
+}
+
+.account-avatar.theme-blue,
+.avatar-picker button.theme-blue::before {
+  background: linear-gradient(135deg, #2f6d7a, #9fc7cb);
+}
+
+.account-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.account-form label,
+.avatar-picker {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(223, 210, 191, 0.86);
+  border-radius: 16px;
+  background: rgba(255, 253, 247, 0.86);
+}
+
+.account-form label > span,
+.avatar-picker > span {
+  color: var(--sz-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.avatar-picker {
+  grid-column: 1 / -1;
+}
+
+.avatar-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar-picker button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-text);
+  background: rgba(255, 250, 241, 0.88);
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.avatar-picker button::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.52);
+}
+
+.avatar-picker button:hover {
+  transform: translateY(-1px);
+}
+
+.avatar-picker button.active {
+  border-color: rgba(35, 107, 75, 0.42);
+  background: var(--sz-mint);
+  box-shadow: 0 8px 18px rgba(35, 107, 75, 0.12);
+}
+
+.account-save-button {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 12px 22px rgba(35, 107, 75, 0.18);
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.account-save-button:hover:not(:disabled) {
+  background: var(--sz-green);
+  box-shadow: 0 14px 28px rgba(35, 107, 75, 0.22);
+}
+
+.account-save-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+
+.account-save-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .save-success {
   display: flex;
   align-items: center;
@@ -686,6 +964,7 @@ h2 {
   }
 
   .hero-metrics,
+  .account-panel,
   .profile-grid {
     grid-template-columns: 1fr;
   }
@@ -706,6 +985,10 @@ h2 {
   }
 
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-form {
     grid-template-columns: 1fr;
   }
 

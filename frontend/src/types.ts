@@ -8,6 +8,7 @@ export interface AuthUser {
   userId: number
   username: string
   nickname: string
+  avatarTheme: string
   role: UserRole
 }
 

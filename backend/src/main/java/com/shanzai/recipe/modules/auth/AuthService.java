@@ -57,7 +57,29 @@ public class AuthService {
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
-        return new UserInfoResponse(user.getId(), user.getUsername(), user.getNickname(), user.getRole());
+        return toUserInfoResponse(user);
+    }
+
+    @Transactional
+    public UserInfoResponse updateCurrentUser(JwtUser jwtUser, UpdateUserRequest request) {
+        UserEntity user = userMapper.selectById(jwtUser.userId());
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+
+        String username = request.username().trim();
+        String nickname = request.nickname().trim();
+        String avatarTheme = request.avatarTheme().trim();
+        UserEntity sameUsernameUser = findByUsername(username);
+        if (sameUsernameUser != null && !sameUsernameUser.getId().equals(user.getId())) {
+            throw new BusinessException("用户名已存在");
+        }
+
+        user.setUsername(username);
+        user.setNickname(nickname);
+        user.setAvatarTheme(avatarTheme);
+        userMapper.updateById(user);
+        return toUserInfoResponse(user);
     }
 
     private UserEntity findByUsername(String username) {
@@ -66,6 +88,27 @@ public class AuthService {
 
     private LoginResponse toLoginResponse(UserEntity user) {
         String token = jwtTokenProvider.generate(user.getId(), user.getUsername(), user.getRole());
-        return new LoginResponse(token, user.getId(), user.getUsername(), user.getNickname(), user.getRole());
+        return new LoginResponse(
+                token,
+                user.getId(),
+                user.getUsername(),
+                user.getNickname(),
+                normalizeAvatarTheme(user.getAvatarTheme()),
+                user.getRole()
+        );
+    }
+
+    private UserInfoResponse toUserInfoResponse(UserEntity user) {
+        return new UserInfoResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getNickname(),
+                normalizeAvatarTheme(user.getAvatarTheme()),
+                user.getRole()
+        );
+    }
+
+    private String normalizeAvatarTheme(String avatarTheme) {
+        return avatarTheme == null || avatarTheme.isBlank() ? "leaf" : avatarTheme;
     }
 }

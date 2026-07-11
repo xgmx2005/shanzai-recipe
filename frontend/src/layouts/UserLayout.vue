@@ -24,6 +24,7 @@ const accountMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const nickname = computed(() => auth.user?.nickname ?? '小膳用户')
 const avatarText = computed(() => nickname.value.slice(0, 1))
+const avatarThemeClass = computed(() => `theme-${auth.user?.avatarTheme ?? 'leaf'}`)
 const isHomePage = computed(() => route.name === 'user-home')
 
 function logout() {
@@ -74,7 +75,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocumentClick)
             :aria-expanded="accountMenuOpen"
             @click="toggleAccountMenu"
           >
-            <span class="avatar" aria-hidden="true">{{ avatarText }}</span>
+            <span class="avatar" :class="avatarThemeClass" aria-hidden="true">{{ avatarText }}</span>
             <span class="user-copy">
               <span>{{ nickname }}</span>
               <small>日常健康</small>
@@ -234,6 +235,26 @@ nav a.router-link-active::after {
   background: linear-gradient(135deg, var(--sz-green-dark), var(--sz-grain));
   box-shadow: 0 7px 16px rgba(23, 37, 31, 0.14);
   font-size: 15px;
+}
+
+.avatar.theme-leaf {
+  background: linear-gradient(135deg, var(--sz-green-dark), var(--sz-grain));
+}
+
+.avatar.theme-mint {
+  background: linear-gradient(135deg, #2c8b57, #8bcf9b);
+}
+
+.avatar.theme-tomato {
+  background: linear-gradient(135deg, #e65b3e, #e6b85c);
+}
+
+.avatar.theme-grain {
+  background: linear-gradient(135deg, #b16b18, #e6b85c);
+}
+
+.avatar.theme-blue {
+  background: linear-gradient(135deg, #2c6f86, #8fc4d1);
 }
 
 .user-copy {
