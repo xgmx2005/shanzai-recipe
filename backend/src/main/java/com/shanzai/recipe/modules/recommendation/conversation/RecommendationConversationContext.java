@@ -19,9 +19,10 @@ public record RecommendationConversationContext(
         boolean restrictionsConfirmed
 ) {
     public RecommendationConversationContext {
-        availableIngredients = immutableList(availableIngredients);
         excludedIngredients = immutableList(excludedIngredients);
         allergyIngredients = immutableList(allergyIngredients);
+        availableIngredients = filterRestrictedIngredients(
+                immutableList(availableIngredients), excludedIngredients, allergyIngredients);
         unknownTerms = immutableList(unknownTerms);
         conflicts = immutableList(conflicts);
     }
@@ -104,6 +105,26 @@ public record RecommendationConversationContext(
         return ingredient.name() == null
                 ? ""
                 : ingredient.name().trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static List<AvailableIngredientInput> filterRestrictedIngredients(
+            List<AvailableIngredientInput> ingredients,
+            List<String> excluded,
+            List<String> allergies
+    ) {
+        LinkedHashSet<String> restricted = new LinkedHashSet<>();
+        restricted.addAll(normalizedNames(excluded));
+        restricted.addAll(normalizedNames(allergies));
+        return ingredients.stream()
+                .filter(ingredient -> !restricted.contains(ingredientKey(ingredient)))
+                .toList();
+    }
+
+    private static List<String> normalizedNames(List<String> values) {
+        return values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                .toList();
     }
 
     private static <T> List<T> immutableList(List<T> values) {

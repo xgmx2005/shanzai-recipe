@@ -210,6 +210,23 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void rejectsSymbolOnlyAiIngredientNames() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(
+                        responseFor("@@@", "200", "g", "true", "[]", "[]"),
+                        MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INTENT, "请帮我推荐一道菜", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(analysis.availableIngredients().isEmpty());
+        assertTrue(analysis.conflicts().contains("食材名称无效"));
+    }
+
+    @Test
     void resolvesConversationAnswerInterpreterToHttpPrimaryBean() {
         try (AnnotationConfigApplicationContext context =
                      new AnnotationConfigApplicationContext(InterpreterBeanConfig.class)) {

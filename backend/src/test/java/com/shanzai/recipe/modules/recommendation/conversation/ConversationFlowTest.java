@@ -316,6 +316,24 @@ class ConversationFlowTest {
     }
 
     @Test
+    void laterRestrictionRemovesMatchingIngredientFromMergedContext() {
+        RecommendationConversationContext existing = new RecommendationConversationContext(
+                "清淡饮食", null,
+                List.of(new AvailableIngredientInput("虾", new BigDecimal("200"), "g", true)),
+                List.of(), List.of(), 30, 1, List.of(), List.of(), false
+        );
+        ConversationAnswerAnalysis restriction = new ConversationAnswerAnalysis(
+                true, null, null, List.of(), List.of(), List.of("虾"),
+                null, null, List.of(), List.of(), BigDecimal.ONE, true
+        );
+
+        RecommendationConversationContext merged = existing.merge(restriction);
+
+        assertTrue(merged.availableIngredients().isEmpty());
+        assertEquals(List.of("虾"), merged.allergyIngredients());
+    }
+
+    @Test
     void mergeDoesNotClearExistingValuesWithEmptyAnalysis() {
         RecommendationConversationContext existing = RecommendationConversationContext.empty()
                 .merge(completeAnalysis(true, List.of(), List.of()));

@@ -66,6 +66,8 @@ class DictionaryConversationAnswerInterpreterTest {
                 ConversationStage.RESTRICTIONS, "30分钟", RecommendationConversationContext.empty());
         ConversationAnswerAnalysis unrestricted = interpreter.interpret(
                 ConversationStage.RESTRICTIONS, "没有忌口，都可以吃", RecommendationConversationContext.empty());
+        ConversationAnswerAnalysis noAvoidance = interpreter.interpret(
+                ConversationStage.RESTRICTIONS, "不忌口", RecommendationConversationContext.empty());
         ConversationAnswerAnalysis allergy = interpreter.interpret(
                 ConversationStage.RESTRICTIONS, "花生过敏，不吃香菜", RecommendationConversationContext.empty());
 
@@ -75,6 +77,9 @@ class DictionaryConversationAnswerInterpreterTest {
         assertTrue(unrestricted.restrictionsAnswered());
         assertTrue(unrestricted.excludedIngredients().isEmpty());
         assertTrue(unrestricted.allergyIngredients().isEmpty());
+        assertTrue(noAvoidance.restrictionsAnswered());
+        assertTrue(noAvoidance.excludedIngredients().isEmpty());
+        assertTrue(noAvoidance.allergyIngredients().isEmpty());
         assertTrue(allergy.restrictionsAnswered());
         assertEquals(List.of("香菜"), allergy.excludedIngredients());
         assertEquals(List.of("花生"), allergy.allergyIngredients());

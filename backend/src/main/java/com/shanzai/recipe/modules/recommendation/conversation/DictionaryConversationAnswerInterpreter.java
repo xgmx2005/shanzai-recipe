@@ -32,7 +32,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             "(?:(\\d+|[一二三四五六七八九十两]+)\\s*(?:个)?\\s*半小时|(\\d+|[一二三四五六七八九十两]+)\\s*小时\\s*半)"
     );
     private static final Pattern NO_RESTRICTION = Pattern.compile(
-            "无忌口|没有忌口|无过敏|没有过敏|不过敏|都可以吃|都能吃|不挑食|没有饮食禁忌|没有禁忌"
+            "无忌口|没有忌口|不忌口|无过敏|没有过敏|不过敏|都可以吃|都能吃|不挑食|没有饮食禁忌|没有禁忌"
     );
     private static final Pattern RESTRICTION_MARKER = Pattern.compile("不吃|忌口|忌|过敏|不能吃|不要吃");
     private static final Pattern EXCLUSION_MARKER = Pattern.compile("不吃|忌口|忌|不能吃|不要吃");
@@ -193,6 +193,10 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             return;
         }
         String name = normalizeName(input.name());
+        if (!hasLetterOrChinese(name)) {
+            addUnique(conflicts, "食材名称无效");
+            return;
+        }
         boolean hasQuantityFields = input.quantity() != null
                 || input.unit() != null && !input.unit().isBlank();
         if (input.quantityKnown()
@@ -542,6 +546,10 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     private static boolean hasAlphaNumericOrChinese(String value) {
         return value.codePoints().anyMatch(codePoint ->
                 Character.isLetterOrDigit(codePoint) || Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN);
+    }
+
+    private static boolean hasLetterOrChinese(String value) {
+        return value.codePoints().anyMatch(Character::isLetter);
     }
 
     private static boolean hasText(String value) {
