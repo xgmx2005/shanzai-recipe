@@ -122,6 +122,18 @@ class DictionaryConversationAnswerInterpreterTest {
     }
 
     @Test
+    void keepsNonQuantityConflictWhenIngredientGetsValidQuantity() {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                null, null, List.of(), List.of(), List.of(), null, null, List.of(),
+                List.of("鸡胸肉同时被列为忌口"), false);
+
+        ConversationAnswerAnalysis analysis = interpreter.interpret(
+                ConversationStage.INGREDIENTS, "300克鸡胸肉", context);
+
+        assertTrue(analysis.conflicts().contains("鸡胸肉同时被列为忌口"));
+    }
+
+    @Test
     void capturesSpecificRestrictionWordsOutsideFoodAliasDictionary() {
         ConversationAnswerAnalysis spicy = interpreter.interpret(
                 ConversationStage.RESTRICTIONS, "不吃辣", RecommendationConversationContext.empty());

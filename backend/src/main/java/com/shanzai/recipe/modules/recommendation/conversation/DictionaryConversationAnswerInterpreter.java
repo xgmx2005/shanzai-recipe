@@ -494,7 +494,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             boolean resolved = content.contains(value)
                     && (!ingredients.isEmpty() || conflict && content.matches(".*\\d+.*"));
             if (!resolved && conflict && ingredients.stream().anyMatch(input ->
-                    input.quantityKnown() && value.startsWith(input.name()))) {
+                    input.quantityKnown() && value.startsWith(input.name() + "数量"))) {
                 resolved = true;
             }
             if (!resolved) {
