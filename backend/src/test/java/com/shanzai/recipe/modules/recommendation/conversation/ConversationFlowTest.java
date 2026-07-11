@@ -1,6 +1,7 @@
 package com.shanzai.recipe.modules.recommendation.conversation;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -14,6 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConversationFlowTest {
     private final ConversationFlow flow = new ConversationFlow();
+
+    @Test
+    void flowIsSpringBeanBecauseConversationServiceInjectsIt() {
+        assertTrue(ConversationFlow.class.isAnnotationPresent(Component.class));
+    }
 
     @Test
     void advancesPastFieldsAlreadyAnsweredInOneMessage() {

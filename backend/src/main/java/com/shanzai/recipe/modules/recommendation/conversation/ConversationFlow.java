@@ -1,5 +1,8 @@
 package com.shanzai.recipe.modules.recommendation.conversation;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public final class ConversationFlow {
     public ConversationTransition apply(
             ConversationStage stage,
