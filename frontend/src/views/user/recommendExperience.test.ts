@@ -11,6 +11,10 @@ const messageListSource = readFileSync(
   fileURLToPath(new URL('../../components/recommendation/RecommendationMessageList.vue', import.meta.url)),
   'utf-8',
 )
+const composerSource = readFileSync(
+  fileURLToPath(new URL('../../components/recommendation/RecommendationComposer.vue', import.meta.url)),
+  'utf-8',
+)
 
 describe('recommendation conversation experience', () => {
   it('makes the agent prompt and composer the visual priority', () => {
@@ -38,5 +42,14 @@ describe('recommendation conversation experience', () => {
     expect(recommendSource).toContain('displayMessages')
     expect(messageListSource).toContain('streamingMessageId')
     expect(messageListSource).toContain('is-streaming')
+  })
+
+  it('treats quick options as removable chips inside the composer instead of sending immediately', () => {
+    expect(composerSource).toContain('selectedOptions')
+    expect(composerSource).toContain('toggleOption')
+    expect(composerSource).toContain('removeOption')
+    expect(composerSource).toContain('selected-option-chips')
+    expect(composerSource).toContain('combinedContent')
+    expect(composerSource).not.toContain('submit(option)')
   })
 })

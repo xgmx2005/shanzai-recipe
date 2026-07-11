@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { RefreshCw, SendHorizontal } from '@lucide/vue'
+import { computed, ref } from 'vue'
+import { Plus, RefreshCw, SendHorizontal, X } from '@lucide/vue'
 
 const props = defineProps<{
   loading?: boolean
@@ -13,20 +13,33 @@ const emit = defineEmits<{
 }>()
 
 const draft = ref('')
+const selectedOptions = ref<string[]>([])
 
-function submit(content = draft.value) {
-  const normalized = content.trim()
+const combinedContent = computed(() => [...selectedOptions.value, draft.value.trim()].filter(Boolean).join('，'))
+
+function submit() {
+  const normalized = combinedContent.value.trim()
   if (!normalized || props.loading) return
   emit('submit', normalized)
   draft.value = ''
+  selectedOptions.value = []
 }
 
-function chooseOption(option: string) {
+function toggleOption(option: string) {
   if (option === '重新开始') {
     emit('restart')
     return
   }
-  submit(option)
+
+  if (selectedOptions.value.includes(option)) {
+    removeOption(option)
+    return
+  }
+  selectedOptions.value.push(option)
+}
+
+function removeOption(option: string) {
+  selectedOptions.value = selectedOptions.value.filter((item) => item !== option)
 }
 </script>
 
@@ -34,6 +47,12 @@ function chooseOption(option: string) {
   <form class="composer" @submit.prevent="submit()">
     <label>
       <span>告诉膳哉你的想法</span>
+      <div v-if="selectedOptions.length" class="selected-option-chips" aria-label="已选择的推荐提示">
+        <button v-for="option in selectedOptions" :key="option" type="button" @click="removeOption(option)">
+          {{ option }}
+          <X :size="13" />
+        </button>
+      </div>
       <textarea
         v-model="draft"
         rows="3"
@@ -49,16 +68,18 @@ function chooseOption(option: string) {
           v-for="option in quickOptions"
           :key="option"
           type="button"
-          :class="{ 'is-restart': option === '重新开始' }"
+          :class="{ 'is-restart': option === '重新开始', active: selectedOptions.includes(option) }"
           :disabled="loading"
-          @click="chooseOption(option)"
+          @click="toggleOption(option)"
         >
           <RefreshCw v-if="option === '重新开始'" :size="14" />
+          <Plus v-else-if="!selectedOptions.includes(option)" :size="14" />
+          <X v-else :size="14" />
           {{ option }}
         </button>
       </div>
 
-      <button class="send-button" type="submit" :disabled="loading || !draft.trim()">
+      <button class="send-button" type="submit" :disabled="loading || !combinedContent.trim()">
         {{ loading ? '正在理解' : '发送' }}
         <SendHorizontal :size="17" />
       </button>
@@ -110,6 +131,13 @@ function chooseOption(option: string) {
   background: var(--sz-tomato-soft);
 }
 
+.quick-options button.active {
+  border-color: rgba(35, 107, 75, 0.34);
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  box-shadow: 0 8px 16px rgba(35, 107, 75, 0.16);
+}
+
 .quick-options button:disabled {
   cursor: wait;
   opacity: 0.68;
@@ -126,6 +154,33 @@ label span {
   font-weight: 900;
 }
 
+.selected-option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 28px;
+  padding: 9px 10px 0;
+  border: 1px solid var(--sz-line);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  background: #fffdf7;
+}
+
+.selected-option-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px 0 11px;
+  border: 1px solid rgba(35, 107, 75, 0.18);
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 textarea {
   width: 100%;
   min-height: 116px;
@@ -138,6 +193,11 @@ textarea {
   font: inherit;
   line-height: 1.65;
   outline: none;
+}
+
+.selected-option-chips + textarea {
+  border-top-color: rgba(223, 210, 191, 0.45);
+  border-radius: 0 0 16px 16px;
 }
 
 textarea:focus {
