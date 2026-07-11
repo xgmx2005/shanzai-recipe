@@ -8,12 +8,16 @@ import com.shanzai.recipe.modules.profile.ProfileEntity;
 import com.shanzai.recipe.modules.profile.ProfileMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RecommendationConversationService {
@@ -26,6 +30,7 @@ public class RecommendationConversationService {
     private final ConversationFlow flow;
     private final ProfileMapper profileMapper;
     private final ObjectMapper objectMapper;
+    private final Map<Long, Object> conversationLocks = new ConcurrentHashMap<>();
 
     public RecommendationConversationService(
             RecommendationConversationMapper conversationMapper,
@@ -97,6 +102,16 @@ public class RecommendationConversationService {
 
     @Transactional
     public ConversationResponse sendMessage(Long userId, Long conversationId, ConversationMessageRequest request) {
+        synchronized (lockForConversation(conversationId)) {
+            return sendMessageLocked(userId, conversationId, request);
+        }
+    }
+
+    Object lockForConversation(Long conversationId) {
+        return conversationLocks.computeIfAbsent(conversationId, ignored -> new Object());
+    }
+
+    private ConversationResponse sendMessageLocked(Long userId, Long conversationId, ConversationMessageRequest request) {
         RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
         if (request == null || isBlank(request.content()) || isBlank(request.clientMessageId())) {
             throw new BusinessException("推荐对话不存在");
@@ -117,7 +132,11 @@ public class RecommendationConversationService {
         userMessage.setRole(USER_ROLE);
         userMessage.setContent(request.content().trim());
         userMessage.setClientMessageId(request.clientMessageId().trim());
-        messageMapper.insert(userMessage);
+        try {
+            messageMapper.insert(userMessage);
+        } catch (DuplicateKeyException exception) {
+            return getConversation(userId, conversationId);
+        }
 
         RecommendationConversationContext context = readContext(conversation.getContextJson());
         ConversationStage stage = ConversationStage.valueOf(conversation.getStage());
@@ -135,6 +154,7 @@ public class RecommendationConversationService {
         conversation.setStatus(transition.status().name());
         conversation.setInvalidAnswerCount(transition.invalidAnswerCount());
         conversation.setContextJson(writeContext(transition.context()));
+        conversation.setUpdatedAt(LocalDateTime.now());
         conversationMapper.updateById(conversation);
 
         RecommendationConversationMessageEntity assistantMessage = new RecommendationConversationMessageEntity();

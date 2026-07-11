@@ -6,6 +6,8 @@ import com.shanzai.recipe.modules.profile.ProfileEntity;
 import com.shanzai.recipe.modules.profile.ProfileMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,11 +15,15 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -135,6 +141,66 @@ class RecommendationConversationServiceTest {
         assertEquals(2, second.messages().size());
         verify(messageMapper, times(1)).insert(argThat((RecommendationConversationMessageEntity message) ->
                 "message-001".equals(message.getClientMessageId())));
+    }
+
+    @Test
+    void sendMessageReturnsConversationWhenConcurrentDuplicateClientMessageIdHitsUniqueConstraint() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setStage(ConversationStage.INGREDIENTS.name());
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectOne(any())).thenReturn(null);
+        when(messageMapper.insert(any(RecommendationConversationMessageEntity.class)))
+                .thenThrow(new DuplicateKeyException("duplicate client message"));
+        when(messageMapper.selectList(any())).thenReturn(List.of(
+                userMessage(1L, 10L, "message-001", "USER", "鸡胸肉")
+        ));
+
+        ConversationResponse response = service.sendMessage(
+                7L,
+                10L,
+                new ConversationMessageRequest("message-001", "鸡胸肉")
+        );
+
+        assertEquals(1, response.messages().size());
+        assertEquals("message-001", response.messages().get(0).clientMessageId());
+        verify(interpreter, never()).interpret(any(), any(), any());
+        verify(conversationMapper, never()).updateById(any(RecommendationConversationEntity.class));
+        verify(messageMapper, times(1)).insert(any(RecommendationConversationMessageEntity.class));
+    }
+
+    @Test
+    void sendMessageRefreshesUpdatedAtBeforeUpdatingConversation() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        LocalDateTime oldUpdatedAt = conversation.getUpdatedAt();
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectOne(any())).thenReturn(null);
+        when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
+        when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
+            RecommendationConversationMessageEntity entity = invocation.getArgument(0);
+            entity.setId("USER".equals(entity.getRole()) ? 1L : 2L);
+            return 1;
+        });
+        when(messageMapper.selectList(any())).thenReturn(List.of(
+                userMessage(1L, 10L, "message-001", "USER", "鸡胸肉"),
+                assistantMessage(2L, 10L, "请继续补充")
+        ));
+
+        service.sendMessage(7L, 10L, new ConversationMessageRequest("message-001", "鸡胸肉"));
+
+        ArgumentCaptor<RecommendationConversationEntity> captor =
+                ArgumentCaptor.forClass(RecommendationConversationEntity.class);
+        verify(conversationMapper).updateById(captor.capture());
+        assertTrue(captor.getValue().getUpdatedAt().isAfter(oldUpdatedAt));
+    }
+
+    @Test
+    void conversationLockIsStablePerConversationOnly() {
+        Object first = service.lockForConversation(10L);
+        Object second = service.lockForConversation(10L);
+        Object otherConversation = service.lockForConversation(11L);
+
+        assertSame(first, second);
+        assertNotSame(first, otherConversation);
     }
 
     @Test
