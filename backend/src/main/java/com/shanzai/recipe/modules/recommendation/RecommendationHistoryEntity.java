@@ -18,6 +18,7 @@ public class RecommendationHistoryEntity {
     private Integer cookingTime;
     private Integer servings;
     private String resultRecipeIds;
+    private String resultDetailJson;
     private String aiSummary;
     private String aiHealthTip;
     private String aiShoppingTip;
@@ -94,6 +95,14 @@ public class RecommendationHistoryEntity {
 
     public void setResultRecipeIds(String resultRecipeIds) {
         this.resultRecipeIds = resultRecipeIds;
+    }
+
+    public String getResultDetailJson() {
+        return resultDetailJson;
+    }
+
+    public void setResultDetailJson(String resultDetailJson) {
+        this.resultDetailJson = resultDetailJson;
     }
 
     public String getAiSummary() {

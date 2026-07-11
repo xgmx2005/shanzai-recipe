@@ -1,6 +1,8 @@
 package com.shanzai.recipe.modules.recommendation;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shanzai.recipe.common.DietGoal;
 import com.shanzai.recipe.modules.ingredient.IngredientEntity;
 import com.shanzai.recipe.modules.ingredient.IngredientMapper;
@@ -39,6 +41,7 @@ public class RecommendationService {
     private final RecommendationLogMapper logMapper;
     private final RecommendationScoringService scoringService;
     private final AiRecommendationService aiRecommendationService;
+    private final ObjectMapper objectMapper;
 
     public RecommendationService(
         RecipeMapper recipeMapper,
@@ -48,7 +51,8 @@ public class RecommendationService {
         RecommendationHistoryMapper historyMapper,
         RecommendationLogMapper logMapper,
         RecommendationScoringService scoringService,
-        AiRecommendationService aiRecommendationService
+        AiRecommendationService aiRecommendationService,
+        ObjectMapper objectMapper
     ) {
         this.recipeMapper = recipeMapper;
         this.recipeIngredientMapper = recipeIngredientMapper;
@@ -58,6 +62,7 @@ public class RecommendationService {
         this.logMapper = logMapper;
         this.scoringService = scoringService;
         this.aiRecommendationService = aiRecommendationService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -215,6 +220,7 @@ public class RecommendationService {
         history.setResultRecipeIds(recipes.stream()
             .map(recipe -> String.valueOf(recipe.id()))
             .collect(Collectors.joining(",")));
+        history.setResultDetailJson(writeResultDetails(recipes));
         history.setAiSummary(analysis.summary());
         history.setAiHealthTip(analysis.healthTip());
         history.setAiShoppingTip(analysis.shoppingTip());
@@ -324,6 +330,14 @@ public class RecommendationService {
 
     private String joinList(List<String> values) {
         return String.join(",", cleanList(values));
+    }
+
+    private String writeResultDetails(List<RecommendedRecipeResponse> recipes) {
+        try {
+            return objectMapper.writeValueAsString(recipes);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("failed to write recommendation result details", exception);
+        }
     }
 
     private String decimalText(BigDecimal value) {

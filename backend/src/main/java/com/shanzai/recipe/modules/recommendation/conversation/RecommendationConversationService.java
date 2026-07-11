@@ -228,7 +228,7 @@ public class RecommendationConversationService {
         RecommendationConversationContext patched = new RecommendationConversationContext(
                 patchText(request.intentText(), current.intentText()),
                 patchText(request.dietGoal(), current.dietGoal()),
-                request.availableIngredients() == null ? current.availableIngredients() : request.availableIngredients(),
+                patchAvailableIngredients(request.availableIngredients(), current.availableIngredients()),
                 request.excludedIngredients() == null ? current.excludedIngredients() : request.excludedIngredients(),
                 request.allergyIngredients() == null ? current.allergyIngredients() : request.allergyIngredients(),
                 request.cookingTime() == null ? current.cookingTime() : request.cookingTime(),
@@ -268,7 +268,15 @@ public class RecommendationConversationService {
         }
 
         RecommendationConversationContext context = readContext(conversation.getContextJson());
-        RecommendationResponse response = recommendationService.recommend(userId, toRecommendationRequest(context));
+        RecommendationRequest request = toRecommendationRequest(context);
+        if (request.availableIngredients().isEmpty()
+                || flow.firstMissingStage(context) != ConversationStage.CONFIRM
+                || !context.unknownTerms().isEmpty()
+                || !context.conflicts().isEmpty()) {
+            throw new BusinessException("推荐条件尚未确认完整");
+        }
+
+        RecommendationResponse response = recommendationService.recommend(userId, request);
         historyService.attachConversationContext(userId, response.historyId(), context);
         conversation.setStatus(ConversationStatus.COMPLETED.name());
         conversation.setRecommendationHistoryId(response.historyId());
@@ -289,6 +297,26 @@ public class RecommendationConversationService {
         }
         return currentConflicts.stream()
                 .filter(conflict -> !isQuantityConflictResolved(conflict, patchedIngredients))
+                .toList();
+    }
+
+    private List<AvailableIngredientInput> patchAvailableIngredients(
+            List<AvailableIngredientInput> next,
+            List<AvailableIngredientInput> previous
+    ) {
+        if (next == null) {
+            return previous;
+        }
+        return next.stream()
+                .filter(Objects::nonNull)
+                .filter(ingredient -> !isBlank(ingredient.name()))
+                .map(ingredient -> new AvailableIngredientInput(
+                        ingredient.name().trim(),
+                        ingredient.quantity(),
+                        cleanText(ingredient.unit()),
+                        ingredient.quantityKnown()
+                ))
+                .distinct()
                 .toList();
     }
 

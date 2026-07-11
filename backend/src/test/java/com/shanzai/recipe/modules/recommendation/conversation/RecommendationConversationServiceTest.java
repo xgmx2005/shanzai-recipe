@@ -389,6 +389,58 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
+    void patchContextWithBlankIngredientDoesNotBecomeReadyToConfirm() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+
+        ConversationResponse response = service.patchContext(
+                7L,
+                10L,
+                new ConversationContextPatchRequest(
+                        "清淡晚餐",
+                        "FAT_LOSS",
+                        List.of(new AvailableIngredientInput("   ", null, null, false)),
+                        List.of(),
+                        List.of(),
+                        30,
+                        2
+                )
+        );
+
+        assertEquals(ConversationStage.INGREDIENTS, response.stage());
+        assertEquals(ConversationStatus.ACTIVE, response.status());
+        assertEquals(List.of(), response.context().availableIngredients());
+    }
+
+    @Test
+    void confirmRejectsReadyConversationWithoutEffectiveIngredients() throws Exception {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                "FAT_LOSS",
+                List.of(new AvailableIngredientInput("   ", null, null, false)),
+                List.of(),
+                List.of(),
+                30,
+                2,
+                List.of(),
+                List.of(),
+                true
+        );
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setStage(ConversationStage.CONFIRM.name());
+        conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
+        conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.confirm(7L, 10L));
+
+        assertEquals("推荐条件尚未确认完整", exception.getMessage());
+        verifyNoInteractions(recommendationService, historyService);
+    }
+
+    @Test
     void confirmRunsInsideConversationLockAndExplicitTransactionTemplate() throws Exception {
         RecommendationConversationContext context = new RecommendationConversationContext(
                 "清淡晚餐",

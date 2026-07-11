@@ -120,6 +120,21 @@ class RecommendationHistoryServiceTest {
         assertEquals("推荐轻食", response.aiSummary());
         assertEquals(List.of(2L, 1L), response.recipes().stream().map(RecommendedRecipeResponse::id).toList());
     }
+
+    @Test
+    void getRecommendationResponsePrefersStoredResultDetailSnapshot() throws Exception {
+        RecommendationHistoryEntity history = history(5L, 7L, "2,1");
+        history.setResultDetailJson("""
+            [{"id":2,"name":"鸡胸肉西兰花轻食碗","score":92,"reason":"高蛋白且匹配食材","calories":360,"protein":28.00,"imageUrl":"/images/recipes/light.jpg"}]
+            """);
+        when(historyMapper.selectById(5L)).thenReturn(history);
+
+        RecommendationResponse response = historyService.getRecommendationResponse(7L, 5L);
+
+        assertEquals(92, response.recipes().get(0).score());
+        assertEquals("高蛋白且匹配食材", response.recipes().get(0).reason());
+        assertEquals("/images/recipes/light.jpg", response.recipes().get(0).imageUrl());
+    }
     private RecommendationHistoryEntity history(Long id, Long userId, String resultRecipeIds) {
         RecommendationHistoryEntity history = new RecommendationHistoryEntity();
         history.setId(id);

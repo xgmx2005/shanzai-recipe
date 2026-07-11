@@ -45,6 +45,51 @@ public class RecommendationHistoryService {
 
     public RecommendationHistoryDetailResponse getHistory(Long userId, Long id) {
         RecommendationHistoryEntity history = requireOwnedHistory(userId, id);
+        return toDetail(history);
+    }
+
+    public void attachConversationContext(Long userId, Long historyId, RecommendationConversationContext context) {
+        RecommendationHistoryEntity history = requireOwnedHistory(userId, historyId);
+        history.setConversationContextJson(writeConversationContext(context));
+        historyMapper.updateById(history);
+    }
+
+    public RecommendationResponse getRecommendationResponse(Long userId, Long historyId) {
+        RecommendationHistoryEntity history = requireOwnedHistory(userId, historyId);
+        List<RecommendedRecipeResponse> recipes = readResultDetails(history.getResultDetailJson());
+        if (recipes.isEmpty()) {
+            RecommendationHistoryDetailResponse detail = toDetail(history);
+            recipes = detail.recipes().stream()
+                .map(recipe -> new RecommendedRecipeResponse(
+                    recipe.id(),
+                    recipe.name(),
+                    0,
+                    "已保存的推荐结果",
+                    recipe.calories(),
+                    recipe.protein(),
+                    recipe.imageUrl()
+                ))
+                .toList();
+        }
+        return new RecommendationResponse(
+            history.getId(),
+            history.getAiSummary(),
+            history.getAiHealthTip(),
+            history.getAiShoppingTip(),
+            Boolean.TRUE.equals(history.getAiGenerated()),
+            recipes
+        );
+    }
+
+    private RecommendationHistoryEntity requireOwnedHistory(Long userId, Long id) {
+        RecommendationHistoryEntity history = historyMapper.selectById(id);
+        if (history == null || !Objects.equals(history.getUserId(), userId)) {
+            throw new BusinessException("推荐历史不存在");
+        }
+        return history;
+    }
+
+    private RecommendationHistoryDetailResponse toDetail(RecommendationHistoryEntity history) {
         List<Long> recipeIds = splitIds(history.getResultRecipeIds());
         Map<Long, RecipeEntity> recipesById = recipesById(recipeIds);
         List<RecommendationHistoryRecipeResponse> recipes = recipeIds.stream()
@@ -68,43 +113,6 @@ public class RecommendationHistoryService {
             recipes,
             history.getCreatedAt()
         );
-    }
-
-    public void attachConversationContext(Long userId, Long historyId, RecommendationConversationContext context) {
-        RecommendationHistoryEntity history = requireOwnedHistory(userId, historyId);
-        history.setConversationContextJson(writeConversationContext(context));
-        historyMapper.updateById(history);
-    }
-
-    public RecommendationResponse getRecommendationResponse(Long userId, Long historyId) {
-        RecommendationHistoryDetailResponse detail = getHistory(userId, historyId);
-        List<RecommendedRecipeResponse> recipes = detail.recipes().stream()
-            .map(recipe -> new RecommendedRecipeResponse(
-                recipe.id(),
-                recipe.name(),
-                0,
-                "已保存的推荐结果",
-                recipe.calories(),
-                recipe.protein(),
-                recipe.imageUrl()
-            ))
-            .toList();
-        return new RecommendationResponse(
-            detail.id(),
-            detail.aiSummary(),
-            detail.aiHealthTip(),
-            detail.aiShoppingTip(),
-            detail.aiGenerated(),
-            recipes
-        );
-    }
-
-    private RecommendationHistoryEntity requireOwnedHistory(Long userId, Long id) {
-        RecommendationHistoryEntity history = historyMapper.selectById(id);
-        if (history == null || !Objects.equals(history.getUserId(), userId)) {
-            throw new BusinessException("推荐历史不存在");
-        }
-        return history;
     }
 
     private RecommendationHistorySummaryResponse toSummary(RecommendationHistoryEntity history) {
@@ -159,6 +167,17 @@ public class RecommendationHistoryService {
             return objectMapper.readValue(value, RecommendationConversationContext.class);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("failed to read conversation context", exception);
+        }
+    }
+
+    private List<RecommendedRecipeResponse> readResultDetails(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        try {
+            return Arrays.asList(objectMapper.readValue(value, RecommendedRecipeResponse[].class));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("failed to read recommendation result details", exception);
         }
     }
 

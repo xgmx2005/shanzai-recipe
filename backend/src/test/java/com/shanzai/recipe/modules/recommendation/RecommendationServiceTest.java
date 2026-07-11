@@ -1,5 +1,6 @@
 package com.shanzai.recipe.modules.recommendation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shanzai.recipe.common.DietGoal;
 import com.shanzai.recipe.modules.ingredient.IngredientEntity;
 import com.shanzai.recipe.modules.ingredient.IngredientMapper;
@@ -50,7 +51,8 @@ class RecommendationServiceTest {
             historyMapper,
             logMapper,
             new RecommendationScoringService(),
-            new AiRecommendationService(new DisabledDeepSeekClient())
+            new AiRecommendationService(new DisabledDeepSeekClient()),
+            new ObjectMapper()
         );
     }
 
@@ -110,6 +112,8 @@ class RecommendationServiceTest {
         assertTrue(historyCaptor.getValue().getAiShoppingTip().contains("购物")
             || historyCaptor.getValue().getAiShoppingTip().contains("清单"));
         assertEquals(false, historyCaptor.getValue().getAiGenerated());
+        assertTrue(historyCaptor.getValue().getResultDetailJson().contains("\"score\""));
+        assertTrue(historyCaptor.getValue().getResultDetailJson().contains("鸡胸肉西兰花轻食碗"));
         assertEquals(1L, logCaptor.getValue().getRecipeId());
     }
 
@@ -132,7 +136,8 @@ class RecommendationServiceTest {
                     "AI购物提示",
                     "AI推荐：" + context.recipes().get(0).name()
                 ));
-            })
+            }),
+            new ObjectMapper()
         );
         when(recipeMapper.selectList(any())).thenReturn(List.of(
             recipe(1L, "鸡胸肉西兰花轻食碗", "FAT_LOSS", "清淡", "低脂,高蛋白", 1),
