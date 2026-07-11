@@ -439,6 +439,36 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
+    void patchContextWithValidDietGoalClearsPreviousInvalidDietGoalConflict() throws Exception {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡晚餐",
+                null,
+                List.of(new AvailableIngredientInput("鸡胸肉", null, null, false)),
+                List.of(),
+                List.of(),
+                30,
+                2,
+                List.of(),
+                List.of("饮食目标无效"),
+                true
+        );
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+
+        ConversationResponse response = service.patchContext(
+                7L,
+                10L,
+                new ConversationContextPatchRequest(null, "FAT_LOSS", null, null, null, null, null)
+        );
+
+        assertEquals(ConversationStatus.READY_TO_CONFIRM, response.status());
+        assertEquals("FAT_LOSS", response.context().dietGoal());
+        assertEquals(List.of(), response.context().conflicts());
+    }
+
+    @Test
     void thirdInvalidMessageExposesRestartQuickOption() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setInvalidAnswerCount(2);

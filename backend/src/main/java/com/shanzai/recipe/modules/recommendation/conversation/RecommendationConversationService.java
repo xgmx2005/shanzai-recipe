@@ -237,6 +237,7 @@ public class RecommendationConversationService {
                 resolvePatchConflicts(
                         current.conflicts(),
                         request.availableIngredients(),
+                        request.dietGoal() != null,
                         invalidDietGoalPatch(request.dietGoal())
                 ),
                 request.excludedIngredients() != null || request.allergyIngredients() != null || current.restrictionsConfirmed()
@@ -293,12 +294,18 @@ public class RecommendationConversationService {
     private List<String> resolvePatchConflicts(
             List<String> currentConflicts,
             List<AvailableIngredientInput> patchedIngredients,
+            boolean dietGoalPatched,
             boolean invalidDietGoalPatch
     ) {
         List<String> conflicts = currentConflicts == null ? List.of() : currentConflicts;
         if (patchedIngredients != null && !patchedIngredients.isEmpty()) {
             conflicts = conflicts.stream()
                     .filter(conflict -> !isQuantityConflictResolved(conflict, patchedIngredients))
+                    .toList();
+        }
+        if (dietGoalPatched) {
+            conflicts = conflicts.stream()
+                    .filter(conflict -> !"饮食目标无效".equals(conflict))
                     .toList();
         }
         if (invalidDietGoalPatch && !conflicts.contains("饮食目标无效")) {
