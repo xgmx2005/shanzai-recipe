@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,6 +46,9 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     );
     private static final List<String> SEPARATORS = List.of("，", "、", "。", "；", ";", "和", "及", "以及");
     private static final Map<String, String> FOOD_ALIASES = aliases();
+    private static final Set<String> AI_NAME_PLACEHOLDERS = Set.of(
+            "abc", "foobar", "unknown", "none", "测试", "测试东西", "未知", "未知食材", "随便"
+    );
     private static final List<String> FOOD_TERMS = FOOD_ALIASES.keySet().stream()
             .sorted(Comparator.comparingInt(String::length).reversed())
             .toList();
@@ -202,7 +206,7 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
             return;
         }
         String name = normalizeName(input.name());
-        if (!hasLetterOrChinese(name)) {
+        if (!hasMeaningfulAiIngredientName(name)) {
             addUnique(conflicts, "食材名称无效");
             return;
         }
@@ -559,6 +563,14 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
 
     private static boolean hasLetterOrChinese(String value) {
         return value.codePoints().anyMatch(Character::isLetter);
+    }
+
+    private boolean hasMeaningfulAiIngredientName(String value) {
+        String normalized = value.trim().replaceAll("\\s+", "");
+        String lowerCase = normalized.toLowerCase(Locale.ROOT);
+        return hasLetterOrChinese(normalized)
+                && !AI_NAME_PLACEHOLDERS.contains(lowerCase)
+                && !lowerCase.matches("(?:test|testing|placeholder|unknown|none|foo|bar)[0-9_-]*");
     }
 
     private static boolean hasText(String value) {

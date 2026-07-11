@@ -227,6 +227,12 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void rejectsObviousAiPlaceholderIngredientNames() {
+        assertInvalidAiIngredientName("abc");
+        assertInvalidAiIngredientName("测试东西");
+    }
+
+    @Test
     void preservesAiOnlyExplicitNoRestrictionAnswer() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -348,6 +354,22 @@ class HttpConversationAnswerInterpreterTest {
         server.verify();
         assertTrue(analysis.availableIngredients().isEmpty());
         assertTrue(analysis.conflicts().contains("紫甘蓝数量无效"));
+    }
+
+    private void assertInvalidAiIngredientName(String name) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(
+                        responseFor(name, "200", "g", "true", "[]", "[]"),
+                        MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "请帮我推荐一道菜", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(analysis.availableIngredients().isEmpty());
+        assertTrue(analysis.conflicts().contains("食材名称无效"));
     }
 
     @Configuration(proxyBeanMethods = false)
