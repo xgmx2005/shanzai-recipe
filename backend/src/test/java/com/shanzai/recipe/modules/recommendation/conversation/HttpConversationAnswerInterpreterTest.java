@@ -227,6 +227,25 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void preservesAiOnlyExplicitNoRestrictionAnswer() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(aiOnlyNoRestrictionResponse(), MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.RESTRICTIONS,
+                "我没有任何饮食限制",
+                RecommendationConversationContext.empty());
+
+        server.verify();
+        assertTrue(analysis.relevant());
+        assertTrue(analysis.restrictionsAnswered());
+        assertTrue(analysis.excludedIngredients().isEmpty());
+        assertTrue(analysis.allergyIngredients().isEmpty());
+    }
+
+    @Test
     void resolvesConversationAnswerInterpreterToHttpPrimaryBean() {
         try (AnnotationConfigApplicationContext context =
                      new AnnotationConfigApplicationContext(InterpreterBeanConfig.class)) {
@@ -300,6 +319,17 @@ class HttpConversationAnswerInterpreterTest {
                 {
                   "choices": [{
                     "message": {"content": "{\"relevant\":false,\"intentText\":null,\"dietGoal\":null,\"availableIngredients\":[],\"excludedIngredients\":[],\"allergyIngredients\":[],\"cookingTime\":null,\"servings\":null,\"unknownTerms\":[],\"conflicts\":[],\"confidence\":0.2,\"restrictionsAnswered\":false}"
+                    }
+                  }]
+                }
+                """;
+    }
+
+    private String aiOnlyNoRestrictionResponse() {
+        return """
+                {
+                  "choices": [{
+                    "message": {"content": "{\\"relevant\\":true,\\"intentText\\":null,\\"dietGoal\\":null,\\"availableIngredients\\":[],\\"excludedIngredients\\":[],\\"allergyIngredients\\":[],\\"cookingTime\\":null,\\"servings\\":null,\\"unknownTerms\\":[],\\"conflicts\\":[],\\"confidence\\":0.9,\\"restrictionsAnswered\\":true}"
                     }
                   }]
                 }

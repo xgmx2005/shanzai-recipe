@@ -34,6 +34,9 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
     private static final Pattern NO_RESTRICTION = Pattern.compile(
             "无忌口|没有忌口|不忌口|无过敏|没有过敏|不过敏|都可以吃|都能吃|不挑食|没有饮食禁忌|没有禁忌"
     );
+    private static final Pattern AI_EXPLICIT_NO_RESTRICTION = Pattern.compile(
+            "无忌口|没有忌口|不忌口|无过敏|没有过敏|不过敏|没有(?:任何)?(?:饮食)?限制|无(?:任何)?(?:饮食)?限制"
+    );
     private static final Pattern RESTRICTION_MARKER = Pattern.compile("不吃|忌口|忌|过敏|不能吃|不要吃");
     private static final Pattern EXCLUSION_MARKER = Pattern.compile("不吃|忌口|忌|不能吃|不要吃");
     private static final Pattern ALLERGY_SUFFIX = Pattern.compile("([^，、。；;！？!?]{1,8})(过敏|过敏原)");
@@ -153,8 +156,14 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
         List<String> allergies = normalizedNames(candidate.allergyIngredients());
         addUniqueAll(allergies, localRelevant ? local.allergyIngredients() : List.of());
         removeRestrictedIngredients(ingredients, excluded, allergies);
+        boolean aiExplicitNoRestriction = candidate.relevant()
+                && candidate.restrictionsAnswered()
+                && excluded.isEmpty()
+                && allergies.isEmpty()
+                && AI_EXPLICIT_NO_RESTRICTION.matcher(content == null ? "" : content).find();
         boolean restrictionsAnswered = (localRelevant && local.restrictionsAnswered())
-                || (candidate.restrictionsAnswered() && (!excluded.isEmpty() || !allergies.isEmpty()));
+                || (candidate.restrictionsAnswered() && (!excluded.isEmpty() || !allergies.isEmpty()))
+                || aiExplicitNoRestriction;
 
         List<String> unknown = new ArrayList<>(candidate.unknownTerms());
         addUniqueAll(unknown, localRelevant ? local.unknownTerms() : List.of());
