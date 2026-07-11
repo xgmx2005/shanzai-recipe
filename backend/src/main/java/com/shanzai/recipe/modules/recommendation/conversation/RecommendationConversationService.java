@@ -100,7 +100,7 @@ public class RecommendationConversationService {
                 context,
                 List.of(),
                 false,
-                quickOptionsFor(ConversationStage.INTENT, ConversationStatus.ACTIVE)
+                quickOptionsFor(ConversationStage.INTENT, ConversationStatus.ACTIVE, 0)
         );
     }
 
@@ -212,7 +212,7 @@ public class RecommendationConversationService {
                 context,
                 messages,
                 status == ConversationStatus.READY_TO_CONFIRM,
-                quickOptionsFor(stage, status)
+                quickOptionsFor(stage, status, defaultInvalidAnswerCount(conversation))
         );
     }
 
@@ -227,14 +227,18 @@ public class RecommendationConversationService {
         RecommendationConversationContext current = readContext(conversation.getContextJson());
         RecommendationConversationContext patched = new RecommendationConversationContext(
                 patchText(request.intentText(), current.intentText()),
-                patchText(request.dietGoal(), current.dietGoal()),
+                patchDietGoal(request.dietGoal(), current.dietGoal()),
                 patchAvailableIngredients(request.availableIngredients(), current.availableIngredients()),
                 request.excludedIngredients() == null ? current.excludedIngredients() : request.excludedIngredients(),
                 request.allergyIngredients() == null ? current.allergyIngredients() : request.allergyIngredients(),
                 request.cookingTime() == null ? current.cookingTime() : request.cookingTime(),
                 request.servings() == null ? current.servings() : request.servings(),
                 current.unknownTerms(),
-                resolvePatchConflicts(current.conflicts(), request.availableIngredients()),
+                resolvePatchConflicts(
+                        current.conflicts(),
+                        request.availableIngredients(),
+                        invalidDietGoalPatch(request.dietGoal())
+                ),
                 request.excludedIngredients() != null || request.allergyIngredients() != null || current.restrictionsConfirmed()
         );
         ConversationStage nextStage = flow.firstMissingStage(patched);
@@ -270,6 +274,7 @@ public class RecommendationConversationService {
         RecommendationConversationContext context = readContext(conversation.getContextJson());
         RecommendationRequest request = toRecommendationRequest(context);
         if (request.availableIngredients().isEmpty()
+                || parseDietGoal(context.dietGoal()) == null
                 || flow.firstMissingStage(context) != ConversationStage.CONFIRM
                 || !context.unknownTerms().isEmpty()
                 || !context.conflicts().isEmpty()) {
@@ -287,17 +292,27 @@ public class RecommendationConversationService {
 
     private List<String> resolvePatchConflicts(
             List<String> currentConflicts,
-            List<AvailableIngredientInput> patchedIngredients
+            List<AvailableIngredientInput> patchedIngredients,
+            boolean invalidDietGoalPatch
     ) {
-        if (currentConflicts == null || currentConflicts.isEmpty()) {
-            return List.of();
+        List<String> conflicts = currentConflicts == null ? List.of() : currentConflicts;
+        if (patchedIngredients != null && !patchedIngredients.isEmpty()) {
+            conflicts = conflicts.stream()
+                    .filter(conflict -> !isQuantityConflictResolved(conflict, patchedIngredients))
+                    .toList();
         }
-        if (patchedIngredients == null || patchedIngredients.isEmpty()) {
-            return currentConflicts;
+        if (invalidDietGoalPatch && !conflicts.contains("饮食目标无效")) {
+            return java.util.stream.Stream.concat(conflicts.stream(), java.util.stream.Stream.of("饮食目标无效"))
+                    .toList();
         }
-        return currentConflicts.stream()
-                .filter(conflict -> !isQuantityConflictResolved(conflict, patchedIngredients))
-                .toList();
+        return conflicts;
+    }
+
+    private boolean invalidDietGoalPatch(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return parseDietGoal(value) == null;
     }
 
     private List<AvailableIngredientInput> patchAvailableIngredients(
@@ -379,6 +394,15 @@ public class RecommendationConversationService {
     private String patchText(String next, String previous) {
         return next == null ? previous : cleanText(next);
     }
+
+    private String patchDietGoal(String next, String previous) {
+        if (next == null) {
+            return previous;
+        }
+        DietGoal goal = parseDietGoal(next);
+        return goal == null ? null : goal.name();
+    }
+
     private RecommendationConversationContext initialContext(Long userId) {
         ProfileEntity profile = profileMapper.selectOne(
                 new LambdaQueryWrapper<ProfileEntity>().eq(ProfileEntity::getUserId, userId));
@@ -423,9 +447,12 @@ public class RecommendationConversationService {
         return conversation.getInvalidAnswerCount() == null ? 0 : conversation.getInvalidAnswerCount();
     }
 
-    private List<String> quickOptionsFor(ConversationStage stage, ConversationStatus status) {
+    private List<String> quickOptionsFor(ConversationStage stage, ConversationStatus status, int invalidAnswerCount) {
         if (status == ConversationStatus.READY_TO_CONFIRM || stage == ConversationStage.CONFIRM) {
             return List.of("确认推荐", "继续补充");
+        }
+        if (invalidAnswerCount >= 3) {
+            return List.of("重新开始", "继续补充");
         }
         return switch (stage) {
             case INTENT -> List.of("想吃清淡点", "想吃高蛋白", "推荐家常菜");

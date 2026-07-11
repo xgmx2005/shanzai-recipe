@@ -414,6 +414,58 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
+    void patchContextWithInvalidDietGoalDoesNotBecomeReadyToConfirm() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+
+        ConversationResponse response = service.patchContext(
+                7L,
+                10L,
+                new ConversationContextPatchRequest(
+                        "清淡晚餐",
+                        "NOT_A_GOAL",
+                        List.of(new AvailableIngredientInput("鸡胸肉", null, null, false)),
+                        List.of(),
+                        List.of(),
+                        30,
+                        2
+                )
+        );
+
+        assertEquals(ConversationStatus.ACTIVE, response.status());
+        assertEquals(null, response.context().dietGoal());
+        assertEquals(List.of("饮食目标无效"), response.context().conflicts());
+    }
+
+    @Test
+    void thirdInvalidMessageExposesRestartQuickOption() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        conversation.setInvalidAnswerCount(2);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectOne(any())).thenReturn(null);
+        when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
+        when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
+            RecommendationConversationMessageEntity entity = invocation.getArgument(0);
+            entity.setId("USER".equals(entity.getRole()) ? 1L : 2L);
+            return 1;
+        });
+        when(messageMapper.selectList(any())).thenReturn(List.of(
+                userMessage(1L, 10L, "message-001", "USER", "？？？"),
+                assistantMessage(2L, 10L, "如果想重新开始，也可以直接发新的需求。")
+        ));
+
+        ConversationResponse response = service.sendMessage(
+                7L,
+                10L,
+                new ConversationMessageRequest("？？？", "message-001")
+        );
+
+        assertEquals(3, response.invalidAnswerCount());
+        assertTrue(response.quickOptions().contains("重新开始"));
+    }
+
+    @Test
     void confirmRejectsReadyConversationWithoutEffectiveIngredients() throws Exception {
         RecommendationConversationContext context = new RecommendationConversationContext(
                 "清淡晚餐",

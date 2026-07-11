@@ -136,6 +136,64 @@ export interface RecommendationResponse {
   recipes: RecommendedRecipe[]
 }
 
+export type ConversationStage = 'INTENT' | 'INGREDIENTS' | 'RESTRICTIONS' | 'CONTEXT' | 'CONFIRM'
+
+export type ConversationStatus = 'ACTIVE' | 'READY_TO_CONFIRM' | 'COMPLETED' | 'CANCELLED'
+
+export interface AvailableIngredientInput {
+  name: string
+  quantity: number | null
+  unit: string | null
+  quantityKnown: boolean
+}
+
+export interface RecommendationConversationContext {
+  intentText: string | null
+  dietGoal: DietGoal | null
+  availableIngredients: AvailableIngredientInput[]
+  excludedIngredients: string[]
+  allergyIngredients: string[]
+  cookingTime: number | null
+  servings: number | null
+  unknownTerms: string[]
+  conflicts: string[]
+  restrictionsConfirmed: boolean
+}
+
+export interface ConversationMessage {
+  id: number
+  role: 'USER' | 'ASSISTANT'
+  content: string
+  clientMessageId: string | null
+  createdAt: string
+}
+
+export interface ConversationResponse {
+  id: number
+  stage: ConversationStage
+  status: ConversationStatus
+  invalidAnswerCount: number
+  context: RecommendationConversationContext
+  messages: ConversationMessage[]
+  showConfirmation: boolean
+  quickOptions: string[]
+}
+
+export interface ConversationMessageRequest {
+  content: string
+  clientMessageId: string
+}
+
+export interface ConversationContextPatchRequest {
+  intentText?: string | null
+  dietGoal?: DietGoal | null
+  availableIngredients?: AvailableIngredientInput[] | null
+  excludedIngredients?: string[] | null
+  allergyIngredients?: string[] | null
+  cookingTime?: number | null
+  servings?: number | null
+}
+
 export interface RecommendationHistorySummary {
   id: number
   inputIngredients: string[]
@@ -153,6 +211,7 @@ export interface RecommendationHistorySummary {
 
 export interface RecommendationHistoryDetail extends RecommendationHistorySummary {
   recipes: Array<Pick<RecipeSummary, 'id' | 'name' | 'imageUrl' | 'calories' | 'protein'>>
+  conversationContext?: RecommendationConversationContext | null
 }
 
 export interface ShoppingListCreateRequest {
