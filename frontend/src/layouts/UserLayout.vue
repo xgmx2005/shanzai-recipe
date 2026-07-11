@@ -28,6 +28,9 @@ const avatarText = computed(() => nickname.value.slice(0, 1))
 const avatarThemeClass = computed(() => `theme-${auth.user?.avatarTheme ?? 'leaf'}`)
 const avatarUrl = computed(() => backendAssetUrl(auth.user?.avatarUrl))
 const isHomePage = computed(() => route.name === 'user-home')
+const pageTransitionName = computed(() =>
+  route.name === 'recommend-result' ? 'recommend-result-transition' : 'user-page-transition',
+)
 
 function logout() {
   auth.logout()
@@ -108,7 +111,11 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocumentClick)
       </div>
     </header>
     <main class="sz-page page-content" :class="{ 'is-home-page': isHomePage }">
-      <router-view />
+      <router-view v-slot="{ Component, route: viewRoute }">
+        <transition :name="pageTransitionName" mode="out-in">
+          <component :is="Component" :key="viewRoute.fullPath" />
+        </transition>
+      </router-view>
     </main>
   </div>
 </template>
@@ -354,14 +361,74 @@ nav a.router-link-active::after {
 }
 
 .page-content {
+  position: relative;
   width: min(1180px, calc(100vw - 40px));
   max-width: 1180px;
   padding-top: 18px;
+  perspective: 1200px;
 }
 
 .page-content.is-home-page {
   width: min(1800px, calc(100vw - (var(--user-page-inline) * 2)));
   max-width: none;
+}
+
+:deep(.user-page-transition-enter-active),
+:deep(.user-page-transition-leave-active) {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+:deep(.user-page-transition-enter-from),
+:deep(.user-page-transition-leave-to) {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+:deep(.recommend-result-transition-enter-active) {
+  transition:
+    opacity 0.36s ease,
+    transform 0.42s cubic-bezier(0.2, 0.9, 0.18, 1),
+    filter 0.36s ease;
+  transform-origin: 50% 18%;
+}
+
+:deep(.recommend-result-transition-leave-active) {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    filter 0.16s ease;
+}
+
+:deep(.recommend-result-transition-enter-from) {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(22px) scale(0.982);
+}
+
+:deep(.recommend-result-transition-leave-to) {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translateY(-8px) scale(0.996);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :deep(.user-page-transition-enter-active),
+  :deep(.user-page-transition-leave-active),
+  :deep(.recommend-result-transition-enter-active),
+  :deep(.recommend-result-transition-leave-active) {
+    transition: none;
+  }
+
+  :deep(.user-page-transition-enter-from),
+  :deep(.user-page-transition-leave-to),
+  :deep(.recommend-result-transition-enter-from),
+  :deep(.recommend-result-transition-leave-to) {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
 }
 
 @media (max-width: 1180px) {

@@ -19,4 +19,13 @@ describe('UserLayout navigation', () => {
     expect(source).not.toContain('notice-button')
     expect(source).not.toContain('n-dropdown')
   })
+
+  it('uses a dedicated route transition when entering the recommendation result page', () => {
+    expect(source).toContain('pageTransitionName')
+    expect(source).toContain('<router-view v-slot')
+    expect(source).toContain('<transition :name="pageTransitionName" mode="out-in">')
+    expect(source).toContain('viewRoute.fullPath')
+    expect(source).toContain('recommend-result-transition')
+    expect(source).toContain('user-page-transition')
+  })
 })
