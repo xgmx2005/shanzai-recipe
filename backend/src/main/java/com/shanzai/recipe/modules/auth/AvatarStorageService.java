@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.UUID;
 import java.util.Map;
 
 @Service
@@ -46,19 +47,23 @@ public class AvatarStorageService {
 
         try {
             Files.createDirectories(userDir);
-            clearOldAvatars(userDir);
             Path target = userDir.resolve("avatar." + extension);
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            Path tempTarget = userDir.resolve("upload-" + UUID.randomUUID() + "." + extension);
+            Files.copy(file.getInputStream(), tempTarget, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING);
+            clearOldAvatars(userDir, target);
             return "/uploads/avatars/user-" + userId + "/avatar." + extension;
         } catch (IOException exception) {
             throw new BusinessException("头像保存失败，请稍后重试");
         }
     }
 
-    private void clearOldAvatars(Path userDir) throws IOException {
+    private void clearOldAvatars(Path userDir, Path currentAvatar) throws IOException {
         try (var files = Files.list(userDir)) {
             files
-                    .filter(path -> path.getFileName().toString().startsWith("avatar."))
+                    .filter(path -> !path.equals(currentAvatar))
+                    .filter(path -> path.getFileName().toString().startsWith("avatar.")
+                            || path.getFileName().toString().startsWith("upload-"))
                     .forEach(path -> {
                         try {
                             Files.deleteIfExists(path);
