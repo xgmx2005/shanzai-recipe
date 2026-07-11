@@ -71,4 +71,14 @@ describe('recommendation conversation experience', () => {
     expect(messageListSource).toContain('去生成')
     expect(recommendSource).toContain('canGenerateRecommendation')
   })
+
+  it('shows a lightweight generation transition before navigating to recommendation results', () => {
+    expect(recommendSource).toContain('generationStepItems')
+    expect(recommendSource).toContain('generation-overlay')
+    expect(recommendSource).toContain('generation-card')
+    expect(recommendSource).toContain('await sleep(650)')
+    expect(recommendSource.indexOf('await sleep(650)')).toBeLessThan(
+      recommendSource.indexOf('recommendationResultRoute(result.historyId)'),
+    )
+  })
 })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bot, MessageCircleMore, RotateCcw, Sparkles } from '@lucide/vue'
+import { Bot, CheckCircle2, MessageCircleMore, RotateCcw, Sparkles } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import {
   confirmConversation,
@@ -34,6 +34,7 @@ const showResumeChoice = ref(false)
 const pendingUserMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantContent = ref('')
+const generationStepItems = ['整理已理解条件', '匹配知识库菜谱', '生成推荐说明']
 const agentThinking = computed(() => sending.value && !streamingAssistantMessage.value)
 const userAvatarText = computed(() => (auth.user?.nickname ?? auth.user?.username ?? '我').slice(0, 1))
 const canGenerateRecommendation = computed(() => {
@@ -215,6 +216,7 @@ async function confirm() {
   try {
     const result = await confirmConversation(conversation.value.id)
     message.success('推荐已生成')
+    await sleep(650)
     await router.push(recommendationResultRoute(result.historyId))
   } catch (err) {
     error.value = err instanceof Error ? err.message : '生成推荐失败'
@@ -272,6 +274,20 @@ onMounted(initialize)
     </section>
 
     <section v-else class="conversation-shell sz-panel">
+      <div v-if="confirming" class="generation-overlay" aria-live="polite">
+        <div class="generation-card">
+          <span class="generation-orb"><Sparkles :size="24" /></span>
+          <strong>正在生成你的这一餐</strong>
+          <p>膳哉正在结合条件、健康档案和知识库菜谱，马上进入推荐结果。</p>
+          <div class="generation-steps">
+            <span v-for="item in generationStepItems" :key="item">
+              <CheckCircle2 :size="15" />
+              {{ item }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div class="conversation-status">
         <div>
           <p class="sz-chip"><MessageCircleMore :size="15" /> 对话输入</p>
@@ -380,11 +396,127 @@ p {
 }
 
 .conversation-shell {
+  position: relative;
   display: grid;
   gap: 15px;
   max-width: 1080px;
   padding: 22px;
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
+}
+
+.generation-overlay {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border-radius: inherit;
+  background: rgba(255, 250, 241, 0.78);
+  backdrop-filter: blur(4px);
+  animation: generation-fade-in 0.18s ease-out both;
+}
+
+.generation-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 26px;
+  border: 1px solid rgba(35, 107, 75, 0.16);
+  border-radius: 20px;
+  color: var(--sz-text);
+  background: rgba(255, 253, 247, 0.96);
+  box-shadow: 0 22px 45px rgba(31, 77, 58, 0.14);
+  text-align: center;
+  animation: generation-card-rise 0.24s ease-out both;
+}
+
+.generation-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  box-shadow: 0 14px 28px rgba(35, 107, 75, 0.22);
+}
+
+.generation-orb::after {
+  position: absolute;
+  inset: -8px;
+  border: 1px solid rgba(35, 107, 75, 0.18);
+  border-radius: inherit;
+  content: '';
+  animation: generation-pulse 1.25s ease-in-out infinite;
+}
+
+.generation-card strong {
+  color: var(--sz-evergreen);
+  font-size: 20px;
+}
+
+.generation-card p {
+  max-width: 330px;
+  color: var(--sz-muted);
+  line-height: 1.7;
+}
+
+.generation-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.generation-steps span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+@keyframes generation-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes generation-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes generation-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
 }
 
 .conversation-workspace {
