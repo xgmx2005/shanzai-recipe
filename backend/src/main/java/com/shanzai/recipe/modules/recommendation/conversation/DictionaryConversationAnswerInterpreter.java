@@ -187,8 +187,17 @@ public class DictionaryConversationAnswerInterpreter implements ConversationAnsw
                 ? candidate.cookingTime() : localRelevant ? local.cookingTime() : null;
         Integer people = candidate.servings() != null && candidate.servings() >= 1
                 ? candidate.servings() : localRelevant ? local.servings() : null;
+        boolean aiHasValidSignal = hasText(candidate.intentText())
+                || hasText(candidate.dietGoal())
+                || !ingredients.isEmpty()
+                || !excluded.isEmpty()
+                || !allergies.isEmpty()
+                || time != null
+                || people != null
+                || !unknown.isEmpty()
+                || restrictionsAnswered;
         return new ConversationAnswerAnalysis(
-                candidate.relevant() || localRelevant,
+                localRelevant || candidate.relevant() && aiHasValidSignal,
                 hasText(candidate.intentText()) ? candidate.intentText() : localRelevant ? local.intentText() : null,
                 hasText(candidate.dietGoal()) ? candidate.dietGoal() : localRelevant ? local.dietGoal() : null,
                 ingredients, excluded, allergies, time, people, unknown, conflicts,

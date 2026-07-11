@@ -233,6 +233,24 @@ class HttpConversationAnswerInterpreterTest {
     }
 
     @Test
+    void meaninglessAiOnlyIngredientCannotMakeAnswerRelevant() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(
+                        responseFor("abc", "200", "g", "true", "[]", "[]"),
+                        MediaType.APPLICATION_JSON));
+
+        ConversationAnswerAnalysis analysis = newInterpreter(builder, "test-key").interpret(
+                ConversationStage.INGREDIENTS, "请记录一下", RecommendationConversationContext.empty());
+
+        server.verify();
+        assertFalse(analysis.relevant());
+        assertTrue(analysis.availableIngredients().isEmpty());
+        assertTrue(analysis.conflicts().contains("食材名称无效"));
+    }
+
+    @Test
     void filtersMeaninglessAiRestrictionNamesButKeepsLegalValues() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
