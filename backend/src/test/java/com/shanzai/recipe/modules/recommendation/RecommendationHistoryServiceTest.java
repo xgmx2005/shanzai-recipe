@@ -119,13 +119,17 @@ class RecommendationHistoryServiceTest {
         assertEquals(5L, response.historyId());
         assertEquals("推荐轻食", response.aiSummary());
         assertEquals(List.of(2L, 1L), response.recipes().stream().map(RecommendedRecipeResponse::id).toList());
+        assertEquals(0, response.recipes().get(0).score());
+        assertEquals("推荐轻食", response.recipes().get(0).reason());
+        assertEquals(List.of(), response.recipes().get(0).matchedIngredients());
+        assertEquals(List.of(), response.recipes().get(0).missingIngredients());
     }
 
     @Test
     void getRecommendationResponsePrefersStoredResultDetailSnapshot() throws Exception {
         RecommendationHistoryEntity history = history(5L, 7L, "2,1");
         history.setResultDetailJson("""
-            [{"id":2,"name":"鸡胸肉西兰花轻食碗","score":92,"reason":"高蛋白且匹配食材","calories":360,"protein":28.00,"imageUrl":"/images/recipes/light.jpg"}]
+            [{"id":2,"name":"鸡胸肉西兰花轻食碗","score":92,"reason":"高蛋白且匹配食材","calories":360,"protein":28.00,"imageUrl":"/images/recipes/light.jpg","matchedIngredients":["鸡胸肉","西兰花"],"missingIngredients":["糙米"]}]
             """);
         when(historyMapper.selectById(5L)).thenReturn(history);
 
@@ -134,7 +138,28 @@ class RecommendationHistoryServiceTest {
         assertEquals(92, response.recipes().get(0).score());
         assertEquals("高蛋白且匹配食材", response.recipes().get(0).reason());
         assertEquals("/images/recipes/light.jpg", response.recipes().get(0).imageUrl());
+        assertEquals(List.of("鸡胸肉", "西兰花"), response.recipes().get(0).matchedIngredients());
+        assertEquals(List.of("糙米"), response.recipes().get(0).missingIngredients());
     }
+
+    @Test
+    void detailPrefersStoredResultDetailSnapshot() {
+        RecommendationHistoryEntity history = history(5L, 7L, "2,1");
+        history.setResultDetailJson("""
+            [{"id":2,"name":"鸡胸肉西兰花轻食碗","score":92,"reason":"高蛋白且匹配食材","calories":360,"protein":28.00,"imageUrl":"/images/recipes/light.jpg","matchedIngredients":["鸡胸肉","西兰花"],"missingIngredients":["糙米"]}]
+            """);
+        when(historyMapper.selectById(5L)).thenReturn(history);
+
+        RecommendationHistoryDetailResponse response = historyService.getHistory(7L, 5L);
+
+        assertEquals(List.of(2L), response.resultRecipeIds());
+        assertEquals(1, response.recipes().size());
+        assertEquals(92, response.recipes().get(0).score());
+        assertEquals("高蛋白且匹配食材", response.recipes().get(0).reason());
+        assertEquals(List.of("鸡胸肉", "西兰花"), response.recipes().get(0).matchedIngredients());
+        assertEquals(List.of("糙米"), response.recipes().get(0).missingIngredients());
+    }
+
     private RecommendationHistoryEntity history(Long id, Long userId, String resultRecipeIds) {
         RecommendationHistoryEntity history = new RecommendationHistoryEntity();
         history.setId(id);

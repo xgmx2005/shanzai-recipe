@@ -1,6 +1,8 @@
 package com.shanzai.recipe.modules.recommendation;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shanzai.recipe.common.BusinessException;
 import com.shanzai.recipe.common.DietGoal;
 import com.shanzai.recipe.modules.ingredient.IngredientEntity;
 import com.shanzai.recipe.modules.ingredient.IngredientMapper;
@@ -20,9 +22,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -180,6 +184,168 @@ class RecommendationServiceTest {
         assertEquals("AI购物提示", response.aiShoppingTip());
         assertEquals(true, response.aiGenerated());
         assertEquals(1, aiCallCount.get());
+    }
+
+    @Test
+    void savesMatchedAndMissingIngredientsInHistorySnapshot() throws Exception {
+        when(recipeMapper.selectList(any())).thenReturn(List.of(
+            recipe(1L, "鸡胸肉西兰花轻食碗", "FAT_LOSS", "清淡", "低脂,高蛋白", 1)
+        ));
+        when(recipeIngredientMapper.selectList(any())).thenReturn(List.of(
+            recipeIngredient(1L, 1L, true),
+            recipeIngredient(1L, 9L, true),
+            recipeIngredient(1L, 18L, false),
+            recipeIngredient(1L, 9L, false)
+        ));
+        when(ingredientMapper.selectBatchIds(List.of(1L, 9L, 18L))).thenReturn(List.of(
+            ingredient(1L, "鸡胸肉"),
+            ingredient(9L, "西兰花"),
+            ingredient(18L, "糙米")
+        ));
+        when(profileMapper.selectOne(any())).thenReturn(profile());
+        when(historyMapper.insert(any(RecommendationHistoryEntity.class))).thenAnswer(invocation -> {
+            RecommendationHistoryEntity history = invocation.getArgument(0);
+            history.setId(8L);
+            return 1;
+        });
+
+        RecommendationResponse response = recommendationService.recommend(
+            7L,
+            new RecommendationRequest(
+                List.of(" 西兰花 ", "鸡胸肉", "西兰花"),
+                List.of(),
+                DietGoal.FAT_LOSS,
+                30,
+                1
+            )
+        );
+
+        RecommendedRecipeResponse recipe = response.recipes().get(0);
+        assertEquals(List.of("鸡胸肉", "西兰花"), recipe.matchedIngredients());
+        assertEquals(List.of("糙米"), recipe.missingIngredients());
+
+        ArgumentCaptor<RecommendationHistoryEntity> historyCaptor =
+            ArgumentCaptor.forClass(RecommendationHistoryEntity.class);
+        verify(historyMapper).insert(historyCaptor.capture());
+        RecommendedRecipeResponse[] snapshot = new ObjectMapper().readValue(
+            historyCaptor.getValue().getResultDetailJson(),
+            RecommendedRecipeResponse[].class
+        );
+        assertEquals(List.of("鸡胸肉", "西兰花"), snapshot[0].matchedIngredients());
+        assertEquals(List.of("糙米"), snapshot[0].missingIngredients());
+    }
+
+    @Test
+    void returnsEmptySafeResultWithoutCallingAiWhenAllRecipesAreBlocked() {
+        AtomicInteger aiCallCount = new AtomicInteger();
+        recommendationService = new RecommendationService(
+            recipeMapper,
+            recipeIngredientMapper,
+            ingredientMapper,
+            profileMapper,
+            historyMapper,
+            logMapper,
+            new RecommendationScoringService(),
+            new AiRecommendationService(context -> {
+                aiCallCount.incrementAndGet();
+                return Optional.of(new AiRecommendationText(
+                    "AI总结",
+                    "AI健康提示",
+                    "AI购物提示",
+                    "AI推荐理由"
+                ));
+            }),
+            new ObjectMapper()
+        );
+        when(recipeMapper.selectList(any())).thenReturn(List.of(
+            recipe(2L, "花生鸡丁", "BALANCED", "家常", "高蛋白", 1),
+            recipe(4L, "花生拌菜", "FAT_LOSS", "清淡", "低脂", 1)
+        ));
+        when(recipeIngredientMapper.selectList(any())).thenReturn(List.of(
+            recipeIngredient(2L, 1L, true),
+            recipeIngredient(2L, 36L, true),
+            recipeIngredient(4L, 9L, true),
+            recipeIngredient(4L, 36L, true)
+        ));
+        when(ingredientMapper.selectBatchIds(List.of(1L, 36L, 9L))).thenReturn(List.of(
+            ingredient(1L, "鸡胸肉"),
+            ingredient(9L, "西兰花"),
+            ingredient(36L, "花生")
+        ));
+        when(profileMapper.selectOne(any())).thenReturn(profile());
+        when(historyMapper.insert(any(RecommendationHistoryEntity.class))).thenAnswer(invocation -> {
+            RecommendationHistoryEntity history = invocation.getArgument(0);
+            history.setId(9L);
+            return 1;
+        });
+
+        RecommendationResponse response = recommendationService.recommend(
+            7L,
+            new RecommendationRequest(
+                List.of("鸡胸肉", "西兰花"),
+                List.of("花生"),
+                DietGoal.FAT_LOSS,
+                30,
+                1
+            )
+        );
+
+        assertEquals(9L, response.historyId());
+        assertEquals("暂无符合过敏和忌口约束的安全推荐，请调整条件后重试。", response.aiSummary());
+        assertEquals(false, response.aiGenerated());
+        assertEquals(List.of(), response.recipes());
+        assertEquals(0, aiCallCount.get());
+
+        ArgumentCaptor<RecommendationHistoryEntity> historyCaptor =
+            ArgumentCaptor.forClass(RecommendationHistoryEntity.class);
+        verify(historyMapper).insert(historyCaptor.capture());
+        assertEquals("", historyCaptor.getValue().getResultRecipeIds());
+        assertEquals("[]", historyCaptor.getValue().getResultDetailJson());
+        assertEquals(false, historyCaptor.getValue().getAiGenerated());
+        verify(logMapper, never()).insert(any(RecommendationLogEntity.class));
+    }
+
+    @Test
+    void throwsBusinessExceptionWhenResultDetailSnapshotCannotBeSerialized() throws Exception {
+        ObjectMapper failingObjectMapper = mock(ObjectMapper.class);
+        when(failingObjectMapper.writeValueAsString(any())).thenThrow(new JsonProcessingException("boom") {
+        });
+        recommendationService = new RecommendationService(
+            recipeMapper,
+            recipeIngredientMapper,
+            ingredientMapper,
+            profileMapper,
+            historyMapper,
+            logMapper,
+            new RecommendationScoringService(),
+            new AiRecommendationService(new DisabledDeepSeekClient()),
+            failingObjectMapper
+        );
+        when(recipeMapper.selectList(any())).thenReturn(List.of(
+            recipe(1L, "鸡胸肉西兰花轻食碗", "FAT_LOSS", "清淡", "低脂,高蛋白", 1)
+        ));
+        when(recipeIngredientMapper.selectList(any())).thenReturn(List.of(
+            recipeIngredient(1L, 1L, true),
+            recipeIngredient(1L, 9L, true)
+        ));
+        when(ingredientMapper.selectBatchIds(List.of(1L, 9L))).thenReturn(List.of(
+            ingredient(1L, "鸡胸肉"),
+            ingredient(9L, "西兰花")
+        ));
+        when(profileMapper.selectOne(any())).thenReturn(profile());
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> recommendationService.recommend(
+            7L,
+            new RecommendationRequest(
+                List.of("鸡胸肉", "西兰花"),
+                List.of(),
+                DietGoal.FAT_LOSS,
+                30,
+                1
+            )
+        ));
+
+        assertEquals("推荐结果保存失败", exception.getMessage());
     }
 
     private RecipeEntity recipe(

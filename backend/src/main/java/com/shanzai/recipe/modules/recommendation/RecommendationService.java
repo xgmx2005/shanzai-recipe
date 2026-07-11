@@ -3,6 +3,7 @@ package com.shanzai.recipe.modules.recommendation;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shanzai.recipe.common.BusinessException;
 import com.shanzai.recipe.common.DietGoal;
 import com.shanzai.recipe.modules.ingredient.IngredientEntity;
 import com.shanzai.recipe.modules.ingredient.IngredientMapper;
@@ -32,6 +33,7 @@ import java.util.stream.IntStream;
 public class RecommendationService {
     private static final int ACTIVE_STATUS = 1;
     private static final int MAX_RECOMMENDATIONS = 5;
+    private static final String EMPTY_SAFE_SUMMARY = "暂无符合过敏和忌口约束的安全推荐，请调整条件后重试。";
 
     private final RecipeMapper recipeMapper;
     private final RecipeIngredientMapper recipeIngredientMapper;
@@ -89,6 +91,25 @@ public class RecommendationService {
             .sorted(Comparator.comparingInt((ScoredRecipe scoredRecipe) -> scoredRecipe.score().totalScore()).reversed())
             .limit(MAX_RECOMMENDATIONS)
             .toList();
+
+        if (scoredRecipes.isEmpty()) {
+            AiRecommendationAnalysis emptyAnalysis = new AiRecommendationAnalysis(
+                EMPTY_SAFE_SUMMARY,
+                "",
+                "",
+                "",
+                false
+            );
+            RecommendationHistoryEntity history = saveHistory(userId, request, requestModel, List.of(), emptyAnalysis);
+            return new RecommendationResponse(
+                history.getId(),
+                emptyAnalysis.summary(),
+                emptyAnalysis.healthTip(),
+                emptyAnalysis.shoppingTip(),
+                emptyAnalysis.generated(),
+                List.of()
+            );
+        }
 
         AiRecommendationAnalysis analysis = aiRecommendationService.generateAnalysis(toAiContext(requestModel, scoredRecipes));
         List<RecommendedRecipeResponse> recommendedRecipes = IntStream.range(0, scoredRecipes.size())
@@ -160,6 +181,10 @@ public class RecommendationService {
             scoredRecipe.candidate().ingredients(),
             requestModel.availableIngredients()
         );
+        List<String> missingIngredients = missingIngredients(
+            scoredRecipe.candidate().ingredients(),
+            requestModel.availableIngredients()
+        );
         String reason = topAiReason == null || topAiReason.isBlank()
             ? aiRecommendationService.generateLocalReason(
                 scoredRecipe.recipe().getName(),
@@ -174,7 +199,9 @@ public class RecommendationService {
             reason,
             scoredRecipe.recipe().getCalories(),
             scoredRecipe.recipe().getProtein(),
-            scoredRecipe.recipe().getImageUrl()
+            scoredRecipe.recipe().getImageUrl(),
+            matchedIngredients,
+            missingIngredients
         );
     }
 
@@ -298,6 +325,13 @@ public class RecommendationService {
             .toList();
     }
 
+    private List<String> missingIngredients(List<String> ingredients, List<String> availableIngredients) {
+        LinkedHashSet<String> available = new LinkedHashSet<>(cleanList(availableIngredients));
+        return cleanList(ingredients).stream()
+            .filter(ingredient -> !available.contains(ingredient))
+            .toList();
+    }
+
     private List<String> mergeTags(String tasteTags, String healthTags) {
         return mergeLists(splitList(tasteTags), splitList(healthTags));
     }
@@ -336,7 +370,7 @@ public class RecommendationService {
         try {
             return objectMapper.writeValueAsString(recipes);
         } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("failed to write recommendation result details", exception);
+            throw new BusinessException("推荐结果保存失败");
         }
     }
 

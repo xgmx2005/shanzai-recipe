@@ -105,6 +105,10 @@ public class RecommendationHistoryEntity {
         this.resultDetailJson = resultDetailJson;
     }
 
+    public boolean hasResultDetailJson() {
+        return resultDetailJson != null && !resultDetailJson.isBlank();
+    }
+
     public String getAiSummary() {
         return aiSummary;
     }

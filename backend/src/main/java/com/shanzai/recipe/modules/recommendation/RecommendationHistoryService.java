@@ -56,18 +56,22 @@ public class RecommendationHistoryService {
 
     public RecommendationResponse getRecommendationResponse(Long userId, Long historyId) {
         RecommendationHistoryEntity history = requireOwnedHistory(userId, historyId);
-        List<RecommendedRecipeResponse> recipes = readResultDetails(history.getResultDetailJson());
-        if (recipes.isEmpty()) {
+        List<RecommendedRecipeResponse> recipes;
+        if (history.hasResultDetailJson()) {
+            recipes = readResultDetails(history.getResultDetailJson());
+        } else {
             RecommendationHistoryDetailResponse detail = toDetail(history);
             recipes = detail.recipes().stream()
                 .map(recipe -> new RecommendedRecipeResponse(
                     recipe.id(),
                     recipe.name(),
-                    0,
-                    "已保存的推荐结果",
+                    recipe.score(),
+                    recipe.reason(),
                     recipe.calories(),
                     recipe.protein(),
-                    recipe.imageUrl()
+                    recipe.imageUrl(),
+                    recipe.matchedIngredients(),
+                    recipe.missingIngredients()
                 ))
                 .toList();
         }
@@ -90,13 +94,15 @@ public class RecommendationHistoryService {
     }
 
     private RecommendationHistoryDetailResponse toDetail(RecommendationHistoryEntity history) {
-        List<Long> recipeIds = splitIds(history.getResultRecipeIds());
-        Map<Long, RecipeEntity> recipesById = recipesById(recipeIds);
-        List<RecommendationHistoryRecipeResponse> recipes = recipeIds.stream()
-            .map(recipesById::get)
-            .filter(Objects::nonNull)
-            .map(this::toRecipeResponse)
-            .toList();
+        List<RecommendedRecipeResponse> resultDetails = history.hasResultDetailJson()
+            ? readResultDetails(history.getResultDetailJson())
+            : List.of();
+        List<Long> recipeIds = history.hasResultDetailJson()
+            ? resultDetails.stream().map(RecommendedRecipeResponse::id).filter(Objects::nonNull).toList()
+            : splitIds(history.getResultRecipeIds());
+        List<RecommendationHistoryRecipeResponse> recipes = history.hasResultDetailJson()
+            ? resultDetails.stream().map(this::toRecipeResponse).toList()
+            : oldRecipeResponses(recipeIds, history);
         return new RecommendationHistoryDetailResponse(
             history.getId(),
             splitList(history.getInputIngredients()),
@@ -149,13 +155,43 @@ public class RecommendationHistoryService {
             ));
     }
 
-    private RecommendationHistoryRecipeResponse toRecipeResponse(RecipeEntity recipe) {
+    private List<RecommendationHistoryRecipeResponse> oldRecipeResponses(
+        List<Long> recipeIds,
+        RecommendationHistoryEntity history
+    ) {
+        Map<Long, RecipeEntity> recipesById = recipesById(recipeIds);
+        return recipeIds.stream()
+            .map(recipesById::get)
+            .filter(Objects::nonNull)
+            .map(recipe -> toOldRecipeResponse(recipe, oldReason(history)))
+            .toList();
+    }
+
+    private RecommendationHistoryRecipeResponse toOldRecipeResponse(RecipeEntity recipe, String reason) {
         return new RecommendationHistoryRecipeResponse(
             recipe.getId(),
             recipe.getName(),
             recipe.getImageUrl(),
             recipe.getCalories(),
-            recipe.getProtein()
+            recipe.getProtein(),
+            0,
+            reason,
+            List.of(),
+            List.of()
+        );
+    }
+
+    private RecommendationHistoryRecipeResponse toRecipeResponse(RecommendedRecipeResponse recipe) {
+        return new RecommendationHistoryRecipeResponse(
+            recipe.id(),
+            recipe.name(),
+            recipe.imageUrl(),
+            recipe.calories(),
+            recipe.protein(),
+            recipe.score(),
+            recipe.reason(),
+            recipe.matchedIngredients(),
+            recipe.missingIngredients()
         );
     }
 
@@ -179,6 +215,11 @@ public class RecommendationHistoryService {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("failed to read recommendation result details", exception);
         }
+    }
+
+    private String oldReason(RecommendationHistoryEntity history) {
+        String summary = history.getAiSummary();
+        return summary == null || summary.isBlank() ? "已保存的推荐结果" : summary;
     }
 
     private String writeConversationContext(RecommendationConversationContext context) {

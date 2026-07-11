@@ -21,4 +21,10 @@ public record RecommendationHistoryDetailResponse(
     List<RecommendationHistoryRecipeResponse> recipes,
     LocalDateTime createdAt
 ) {
+    public RecommendationHistoryDetailResponse {
+        inputIngredients = inputIngredients == null ? List.of() : List.copyOf(inputIngredients);
+        excludedIngredients = excludedIngredients == null ? List.of() : List.copyOf(excludedIngredients);
+        resultRecipeIds = resultRecipeIds == null ? List.of() : List.copyOf(resultRecipeIds);
+        recipes = recipes == null ? List.of() : List.copyOf(recipes);
+    }
 }
