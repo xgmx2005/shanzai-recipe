@@ -82,24 +82,26 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
 
 <style scoped>
 .condition-summary {
+  position: sticky;
+  top: 92px;
   display: grid;
-  gap: 11px;
-  padding: 14px;
+  gap: 10px;
+  padding: 13px;
   border: 1px solid rgba(223, 210, 191, 0.9);
   border-radius: 15px;
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
+  box-shadow: 0 10px 22px rgba(23, 37, 31, 0.05);
 }
 
 .summary-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
 }
 
 .summary-head button {
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 10px;
   border: 1px solid rgba(35, 107, 75, 0.16);
   border-radius: var(--sz-radius-pill);
   color: var(--sz-deep-green);
@@ -110,15 +112,15 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .summary-grid article {
   display: grid;
-  gap: 5px;
-  min-height: 58px;
-  padding: 9px 10px;
+  gap: 4px;
+  min-height: 54px;
+  padding: 8px 10px;
   border: 1px solid rgba(223, 210, 191, 0.76);
   border-radius: 13px;
   background: rgba(255, 253, 247, 0.82);
@@ -130,7 +132,7 @@ const canConfirm = computed(() => props.showConfirmation && props.status === 'RE
   align-items: center;
   gap: 5px;
   color: var(--sz-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -152,8 +154,8 @@ section {
 
 .tag-list span,
 .tag-list strong {
-  min-height: 26px;
-  padding: 4px 9px;
+  min-height: 24px;
+  padding: 3px 8px;
   border-radius: var(--sz-radius-pill);
   color: var(--sz-deep-green);
   background: var(--sz-mint);
@@ -207,13 +209,13 @@ section {
 }
 
 @media (max-width: 720px) {
+  .condition-summary {
+    position: static;
+  }
+
   .summary-head {
     display: grid;
     justify-items: start;
-  }
-
-  .summary-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

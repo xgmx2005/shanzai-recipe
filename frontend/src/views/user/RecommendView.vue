@@ -196,35 +196,40 @@ onMounted(initialize)
       <n-skeleton v-if="loading && !conversation" text :repeat="5" />
 
       <template v-else-if="conversation">
-        <div v-if="conversation.messages.length === 0" class="agent-prompt">
-          <span class="agent-orb"><Bot :size="23" /></span>
-          <strong>先说说你今天想怎么吃</strong>
-          <p>例如：家里有鸡蛋、西兰花和牛肉，想吃清淡一点，20 分钟内做好。</p>
+        <div class="conversation-workspace">
+          <div class="conversation-main">
+            <div v-if="conversation.messages.length === 0" class="agent-prompt">
+              <span class="agent-orb"><Bot :size="23" /></span>
+              <strong>先说说你今天想怎么吃</strong>
+              <p>例如：家里有鸡蛋、西兰花和牛肉，想吃清淡一点，20 分钟内做好。</p>
+            </div>
+
+            <RecommendationMessageList
+              v-else
+              :messages="conversation.messages"
+              :loading="sending || confirming"
+              :user-avatar-text="userAvatarText"
+              :user-avatar-url="auth.user?.avatarUrl ?? ''"
+            />
+
+            <RecommendationComposer
+              :quick-options="conversation.quickOptions"
+              :loading="sending || confirming"
+              @submit="submitMessage"
+              @restart="restart"
+            />
+          </div>
+
+          <RecommendationConditionSummary
+            class="condition-dock"
+            :context="conversation.context"
+            :status="conversation.status"
+            :show-confirmation="conversation.showConfirmation"
+            :confirming="confirming"
+            @confirm="confirm"
+            @edit="editConditions"
+          />
         </div>
-
-        <RecommendationMessageList
-          v-else
-          :messages="conversation.messages"
-          :loading="sending || confirming"
-          :user-avatar-text="userAvatarText"
-          :user-avatar-url="auth.user?.avatarUrl ?? ''"
-        />
-
-        <RecommendationComposer
-          :quick-options="conversation.quickOptions"
-          :loading="sending || confirming"
-          @submit="submitMessage"
-          @restart="restart"
-        />
-
-        <RecommendationConditionSummary
-          :context="conversation.context"
-          :status="conversation.status"
-          :show-confirmation="conversation.showConfirmation"
-          :confirming="confirming"
-          @confirm="confirm"
-          @edit="editConditions"
-        />
       </template>
 
       <div v-else class="empty-state">
@@ -285,20 +290,36 @@ p {
 .conversation-shell {
   display: grid;
   gap: 15px;
-  padding: 24px;
+  max-width: 1080px;
+  padding: 22px;
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
+}
+
+.conversation-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: 16px;
+  align-items: start;
+}
+
+.conversation-main {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
 }
 
 .agent-prompt {
   display: grid;
   justify-items: center;
-  gap: 10px;
-  min-height: 180px;
-  padding: 28px;
+  gap: 12px;
+  min-height: 230px;
+  padding: 34px 28px;
   border: 1px dashed rgba(35, 107, 75, 0.24);
-  border-radius: 18px;
+  border-radius: 20px;
   color: var(--sz-muted);
-  background: rgba(220, 239, 228, 0.34);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(72, 168, 106, 0.13), transparent 34%),
+    rgba(220, 239, 228, 0.34);
   text-align: center;
 }
 
@@ -306,8 +327,8 @@ p {
   position: relative;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   color: var(--sz-deep-green);
   background: var(--sz-mint);
@@ -317,7 +338,7 @@ p {
 
 .agent-orb::after {
   position: absolute;
-  inset: -8px;
+  inset: -10px;
   border: 1px solid rgba(35, 107, 75, 0.14);
   border-radius: inherit;
   content: '';
@@ -326,7 +347,7 @@ p {
 
 .agent-prompt strong {
   color: var(--sz-evergreen);
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .agent-prompt p {
@@ -460,6 +481,14 @@ p {
   .conversation-shell,
   .resume-panel {
     padding: 18px;
+  }
+
+  .conversation-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-prompt {
+    min-height: 210px;
   }
 
   .resume-actions,

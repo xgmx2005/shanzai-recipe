@@ -32,20 +32,6 @@ function chooseOption(option: string) {
 
 <template>
   <form class="composer" @submit.prevent="submit()">
-    <div v-if="quickOptions.length" class="quick-options">
-      <button
-        v-for="option in quickOptions"
-        :key="option"
-        type="button"
-        :class="{ 'is-restart': option === '重新开始' }"
-        :disabled="loading"
-        @click="chooseOption(option)"
-      >
-        <RefreshCw v-if="option === '重新开始'" :size="14" />
-        {{ option }}
-      </button>
-    </div>
-
     <label>
       <span>告诉膳哉你的想法</span>
       <textarea
@@ -57,18 +43,46 @@ function chooseOption(option: string) {
       />
     </label>
 
-    <button class="send-button" type="submit" :disabled="loading || !draft.trim()">
-      {{ loading ? '正在理解' : '发送' }}
-      <SendHorizontal :size="17" />
-    </button>
+    <div class="composer-footer">
+      <div v-if="quickOptions.length" class="quick-options">
+        <button
+          v-for="option in quickOptions"
+          :key="option"
+          type="button"
+          :class="{ 'is-restart': option === '重新开始' }"
+          :disabled="loading"
+          @click="chooseOption(option)"
+        >
+          <RefreshCw v-if="option === '重新开始'" :size="14" />
+          {{ option }}
+        </button>
+      </div>
+
+      <button class="send-button" type="submit" :disabled="loading || !draft.trim()">
+        {{ loading ? '正在理解' : '发送' }}
+        <SendHorizontal :size="17" />
+      </button>
+    </div>
   </form>
 </template>
 
 <style scoped>
 .composer {
   display: grid;
+  gap: 13px;
+  padding: 14px;
+  border: 1px solid rgba(35, 107, 75, 0.14);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(246, 252, 247, 0.94));
+  box-shadow: 0 12px 24px rgba(23, 37, 31, 0.06);
+}
+
+.composer-footer {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
   gap: 12px;
-  padding-top: 4px;
 }
 
 .quick-options {
@@ -114,11 +128,11 @@ label span {
 
 textarea {
   width: 100%;
-  min-height: 86px;
+  min-height: 116px;
   resize: vertical;
-  padding: 13px 14px;
+  padding: 15px 16px;
   border: 1px solid var(--sz-line);
-  border-radius: 14px;
+  border-radius: 16px;
   color: var(--sz-text);
   background: #fffdf7;
   font: inherit;
@@ -135,7 +149,6 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  justify-self: end;
   gap: 8px;
   min-width: 120px;
   min-height: 42px;
@@ -155,6 +168,10 @@ textarea:focus {
 }
 
 @media (max-width: 640px) {
+  .composer-footer {
+    display: grid;
+  }
+
   .send-button {
     width: 100%;
   }
