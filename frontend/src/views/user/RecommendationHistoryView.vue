@@ -9,6 +9,7 @@ import { getRecommendationHistory, listRecommendationHistory } from '@/api/recom
 import type { RecommendationHistoryDetail, RecommendationHistorySummary } from '@/types'
 import { replaceImageWithFallback, resolveRecipeImage } from '@/utils/assets'
 import { shoppingListRoute } from '@/utils/navigation'
+import { recommendationResultRoute } from '@/utils/recommendationConversation'
 
 const message = useMessage()
 const route = useRoute()
@@ -48,6 +49,10 @@ function fullDate(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function openResult(id: number) {
+  void router.push(recommendationResultRoute(id))
 }
 
 async function load() {
@@ -172,6 +177,10 @@ onMounted(load)
                 <button class="shopping-button" type="button" :disabled="creating" @click="makeShoppingList">
                   <ListChecks :size="18" />
                   {{ creating ? '正在生成' : '生成购物清单' }}
+                </button>
+                <button class="result-button" type="button" @click="openResult(detail.id)">
+                  <ArrowRight :size="18" />
+                  查看本次结果
                 </button>
               </div>
 
@@ -486,7 +495,8 @@ h1 {
   font-weight: 800;
 }
 
-.shopping-button {
+.shopping-button,
+.result-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -500,6 +510,13 @@ h1 {
   box-shadow: 0 12px 22px rgba(35, 107, 75, 0.2);
   font-weight: 900;
   cursor: pointer;
+}
+
+.result-button {
+  border: 1px solid rgba(35, 107, 75, 0.18);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  box-shadow: none;
 }
 
 .shopping-button:disabled {

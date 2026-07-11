@@ -40,7 +40,7 @@ const router = createRouter({
         {
           path: 'recommend/result',
           name: 'recommend-result',
-          component: () => import('@/views/user/RecommendationHistoryView.vue'),
+          component: () => import('@/views/user/RecommendationResultView.vue'),
         },
         {
           path: 'recipes/:id',
