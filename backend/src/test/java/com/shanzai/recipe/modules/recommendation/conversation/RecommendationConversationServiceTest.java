@@ -139,7 +139,7 @@ class RecommendationConversationServiceTest {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setStage(ConversationStage.INGREDIENTS.name());
         conversation.setContextJson("{\"intentText\":\"想吃清淡点\",\"dietGoal\":null,\"availableIngredients\":[],\"excludedIngredients\":[],\"allergyIngredients\":[],\"cookingTime\":null,\"servings\":null,\"unknownTerms\":[],\"conflicts\":[],\"restrictionsConfirmed\":false}");
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectOne(any())).thenReturn(null, userMessage(1L, 10L, "message-001", "USER", "鸡胸肉"));
         when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
         when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
@@ -163,13 +163,14 @@ class RecommendationConversationServiceTest {
         assertEquals(2, second.messages().size());
         verify(messageMapper, times(1)).insert(argThat((RecommendationConversationMessageEntity message) ->
                 "message-001".equals(message.getClientMessageId())));
+        verify(conversationMapper, times(2)).selectOwnedByIdForUpdate(10L, 7L);
     }
 
     @Test
     void sendMessageReturnsConversationWhenConcurrentDuplicateClientMessageIdHitsUniqueConstraint() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setStage(ConversationStage.INGREDIENTS.name());
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectOne(any())).thenReturn(null);
         when(messageMapper.insert(any(RecommendationConversationMessageEntity.class)))
                 .thenThrow(new DuplicateKeyException("duplicate client message"));
@@ -187,6 +188,7 @@ class RecommendationConversationServiceTest {
         assertEquals("message-001", response.messages().get(0).clientMessageId());
         verify(interpreter, never()).interpret(any(), any(), any());
         verify(conversationMapper, never()).updateById(any(RecommendationConversationEntity.class));
+        verify(conversationMapper).selectOwnedByIdForUpdate(10L, 7L);
         verify(messageMapper, times(1)).insert(any(RecommendationConversationMessageEntity.class));
     }
 
@@ -194,7 +196,7 @@ class RecommendationConversationServiceTest {
     void sendMessageRefreshesUpdatedAtBeforeUpdatingConversation() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         LocalDateTime oldUpdatedAt = conversation.getUpdatedAt();
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectOne(any())).thenReturn(null);
         when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
         when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
@@ -212,13 +214,14 @@ class RecommendationConversationServiceTest {
         ArgumentCaptor<RecommendationConversationEntity> captor =
                 ArgumentCaptor.forClass(RecommendationConversationEntity.class);
         verify(conversationMapper).updateById(captor.capture());
+        verify(conversationMapper).selectOwnedByIdForUpdate(10L, 7L);
         assertTrue(captor.getValue().getUpdatedAt().isAfter(oldUpdatedAt));
     }
 
     @Test
     void sendMessageRunsNormalPathInsideExplicitTransactionTemplate() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectOne(any())).thenReturn(null);
         when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
         when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
@@ -294,7 +297,7 @@ class RecommendationConversationServiceTest {
     @Test
     void confirmRejectsConversationThatIsNotReadyToConfirm() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
-        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.confirm(7L, 10L));
@@ -321,7 +324,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
         when(recommendationService.recommend(any(), any())).thenReturn(expected);
 
@@ -346,7 +349,7 @@ class RecommendationConversationServiceTest {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setStatus(ConversationStatus.COMPLETED.name());
         conversation.setRecommendationHistoryId(99L);
-        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
         when(historyService.getRecommendationResponse(7L, 99L)).thenReturn(expected);
 
@@ -375,7 +378,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.ACTIVE.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         ConversationResponse response = service.patchContext(
@@ -391,7 +394,7 @@ class RecommendationConversationServiceTest {
     @Test
     void patchContextWithBlankIngredientDoesNotBecomeReadyToConfirm() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         ConversationResponse response = service.patchContext(
@@ -416,7 +419,7 @@ class RecommendationConversationServiceTest {
     @Test
     void patchContextWithInvalidDietGoalDoesNotBecomeReadyToConfirm() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         ConversationResponse response = service.patchContext(
@@ -454,7 +457,7 @@ class RecommendationConversationServiceTest {
         );
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         ConversationResponse response = service.patchContext(
@@ -484,7 +487,7 @@ class RecommendationConversationServiceTest {
         );
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         ConversationResponse response = service.patchContext(
@@ -508,7 +511,7 @@ class RecommendationConversationServiceTest {
     @Test
     void patchContextRunsInsideConversationLockAndExplicitTransactionTemplate() throws Exception {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
 
         Object lock = service.lockForConversation(10L);
@@ -527,13 +530,14 @@ class RecommendationConversationServiceTest {
         worker.join(3000);
         assertEquals(1, transactionManager.beginCount());
         assertEquals(1, transactionManager.commitCount());
+        verify(conversationMapper).selectOwnedByIdForUpdate(10L, 7L);
     }
 
     @Test
     void thirdInvalidMessageExposesRestartQuickOption() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         conversation.setInvalidAnswerCount(2);
-        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(messageMapper.selectOne(any())).thenReturn(null);
         when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
         when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
@@ -574,7 +578,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.confirm(7L, 10L));
@@ -601,7 +605,7 @@ class RecommendationConversationServiceTest {
         conversation.setStage(ConversationStage.CONFIRM.name());
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
-        when(conversationMapper.selectOwnedByIdForUpdate(10L, 7L)).thenReturn(conversation);
+        stubWritableConversation(conversation);
         when(recommendationService.recommend(any(), any()))
                 .thenReturn(new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of()));
 
@@ -619,6 +623,12 @@ class RecommendationConversationServiceTest {
         assertEquals(1, transactionManager.commitCount());
         verify(conversationMapper).selectOwnedByIdForUpdate(10L, 7L);
     }
+    private void stubWritableConversation(RecommendationConversationEntity conversation) {
+        when(conversationMapper.selectOwnedByIdForUpdate(conversation.getId(), conversation.getUserId()))
+                .thenReturn(conversation);
+        when(conversationMapper.selectById(conversation.getId())).thenReturn(conversation);
+    }
+
     private RecommendationConversationEntity activeConversation(Long id, Long userId) {
         RecommendationConversationEntity entity = new RecommendationConversationEntity();
         entity.setId(id);

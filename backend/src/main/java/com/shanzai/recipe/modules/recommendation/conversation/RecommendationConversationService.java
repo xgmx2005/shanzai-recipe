@@ -131,7 +131,7 @@ public class RecommendationConversationService {
     }
 
     private ConversationResponse sendMessageLocked(Long userId, Long conversationId, ConversationMessageRequest request) {
-        RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
+        RecommendationConversationEntity conversation = requireConversationForUpdate(userId, conversationId);
         if (request == null || isBlank(request.content()) || isBlank(request.clientMessageId())) {
             throw new BusinessException("推荐对话不存在");
         }
@@ -225,7 +225,7 @@ public class RecommendationConversationService {
     }
 
     private ConversationResponse patchContextLocked(Long userId, Long conversationId, ConversationContextPatchRequest request) {
-        RecommendationConversationEntity conversation = requireConversation(userId, conversationId);
+        RecommendationConversationEntity conversation = requireConversationForUpdate(userId, conversationId);
         if (ConversationStatus.COMPLETED.name().equals(conversation.getStatus())
                 || ConversationStatus.CANCELLED.name().equals(conversation.getStatus())) {
             throw new BusinessException("推荐对话不存在");
