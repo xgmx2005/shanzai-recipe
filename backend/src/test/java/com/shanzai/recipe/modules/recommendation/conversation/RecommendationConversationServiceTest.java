@@ -8,11 +8,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -33,6 +40,7 @@ class RecommendationConversationServiceTest {
     private RecommendationConversationMessageMapper messageMapper;
     private ConversationAnswerInterpreter interpreter;
     private ProfileMapper profileMapper;
+    private RecordingTransactionManager transactionManager;
     private RecommendationConversationService service;
 
     @BeforeEach
@@ -41,13 +49,15 @@ class RecommendationConversationServiceTest {
         messageMapper = mock(RecommendationConversationMessageMapper.class);
         interpreter = mock(ConversationAnswerInterpreter.class);
         profileMapper = mock(ProfileMapper.class);
+        transactionManager = new RecordingTransactionManager();
         service = new RecommendationConversationService(
                 conversationMapper,
                 messageMapper,
                 interpreter,
                 new ConversationFlow(),
                 profileMapper,
-                new ObjectMapper()
+                new ObjectMapper(),
+                new TransactionTemplate(transactionManager)
         );
     }
 
@@ -194,6 +204,28 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
+    void sendMessageRunsNormalPathInsideExplicitTransactionTemplate() {
+        RecommendationConversationEntity conversation = activeConversation(10L, 7L);
+        when(conversationMapper.selectById(10L)).thenReturn(conversation);
+        when(messageMapper.selectOne(any())).thenReturn(null);
+        when(interpreter.interpret(any(), any(), any())).thenReturn(ConversationAnswerAnalysis.invalid());
+        when(messageMapper.insert(any(RecommendationConversationMessageEntity.class))).thenAnswer(invocation -> {
+            RecommendationConversationMessageEntity entity = invocation.getArgument(0);
+            entity.setId("USER".equals(entity.getRole()) ? 1L : 2L);
+            return 1;
+        });
+        when(messageMapper.selectList(any())).thenReturn(List.of(
+                userMessage(1L, 10L, "message-001", "USER", "鸡胸肉"),
+                assistantMessage(2L, 10L, "请继续补充")
+        ));
+
+        service.sendMessage(7L, 10L, new ConversationMessageRequest("message-001", "鸡胸肉"));
+
+        assertEquals(1, transactionManager.beginCount());
+        assertEquals(1, transactionManager.commitCount());
+    }
+
+    @Test
     void conversationLockIsStablePerConversationOnly() {
         Object first = service.lockForConversation(10L);
         Object second = service.lockForConversation(10L);
@@ -283,5 +315,33 @@ class RecommendationConversationServiceTest {
             String content
     ) {
         return userMessage(id, conversationId, null, "ASSISTANT", content);
+    }
+
+    private static class RecordingTransactionManager implements PlatformTransactionManager {
+        private final AtomicInteger beginCount = new AtomicInteger();
+        private final AtomicInteger commitCount = new AtomicInteger();
+
+        @Override
+        public TransactionStatus getTransaction(TransactionDefinition definition) throws TransactionException {
+            beginCount.incrementAndGet();
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus status) throws TransactionException {
+            commitCount.incrementAndGet();
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) throws TransactionException {
+        }
+
+        int beginCount() {
+            return beginCount.get();
+        }
+
+        int commitCount() {
+            return commitCount.get();
+        }
     }
 }

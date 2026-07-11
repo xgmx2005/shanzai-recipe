@@ -9,6 +9,7 @@ import com.shanzai.recipe.modules.profile.ProfileMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -30,6 +31,7 @@ public class RecommendationConversationService {
     private final ConversationFlow flow;
     private final ProfileMapper profileMapper;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
     private final Map<Long, Object> conversationLocks = new ConcurrentHashMap<>();
 
     public RecommendationConversationService(
@@ -38,7 +40,8 @@ public class RecommendationConversationService {
             ConversationAnswerInterpreter interpreter,
             ConversationFlow flow,
             ProfileMapper profileMapper,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            TransactionTemplate transactionTemplate
     ) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
@@ -46,6 +49,7 @@ public class RecommendationConversationService {
         this.flow = flow;
         this.profileMapper = profileMapper;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
     public Optional<RecommendationConversationEntity> findActiveConversation(Long userId) {
@@ -100,10 +104,10 @@ public class RecommendationConversationService {
                         ConversationStatus.READY_TO_CONFIRM.name()));
     }
 
-    @Transactional
     public ConversationResponse sendMessage(Long userId, Long conversationId, ConversationMessageRequest request) {
         synchronized (lockForConversation(conversationId)) {
-            return sendMessageLocked(userId, conversationId, request);
+            return Objects.requireNonNull(transactionTemplate.execute(
+                    status -> sendMessageLocked(userId, conversationId, request)));
         }
     }
 
