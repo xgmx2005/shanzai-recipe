@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import {
+  deleteCurrentUser,
   getCurrentUser,
   login as loginApi,
   register as registerApi,
@@ -170,6 +171,10 @@ export const useAuthStore = defineStore('auth', {
         persistSession({ token: this.token, user: this.user })
       }
       return this.user
+    },
+    async deleteAccount() {
+      await deleteCurrentUser()
+      this.logout()
     },
   },
 })

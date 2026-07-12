@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
+  AlertTriangle,
   CheckCircle2,
   ChefHat,
   Clock3,
@@ -12,6 +14,7 @@ import {
   Scale,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   UserRound,
 } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
@@ -23,14 +26,18 @@ import { useAuthStore } from '@/stores/auth'
 import type { DietGoal, Profile, ProfileRequest } from '@/types'
 
 const auth = useAuthStore()
+const router = useRouter()
 const message = useMessage()
 const saving = ref(false)
 const accountSaving = ref(false)
 const avatarUploading = ref(false)
+const deletingAccount = ref(false)
 const loading = ref(true)
 const error = ref('')
 const saveSuccess = ref(false)
 const accountSaveSuccess = ref(false)
+const deleteConfirmVisible = ref(false)
+const deleteConfirmText = ref('')
 const avatarInput = ref<HTMLInputElement | null>(null)
 let successNoticeTimer: ReturnType<typeof window.setTimeout> | null = null
 const genderOptions = ['女', '男'] as const
@@ -220,6 +227,27 @@ async function uploadAvatar(event: Event) {
   }
 }
 
+function openDeleteAccountDialog() {
+  deleteConfirmText.value = ''
+  deleteConfirmVisible.value = true
+}
+
+async function handleDeleteAccount() {
+  if (deleteConfirmText.value !== '注销账号' || deletingAccount.value) return
+  deletingAccount.value = true
+  error.value = ''
+  try {
+    await auth.deleteAccount()
+    message.success('账号已注销')
+    await router.push('/login')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '注销账号失败'
+    message.error(error.value)
+  } finally {
+    deletingAccount.value = false
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   error.value = ''
@@ -351,6 +379,18 @@ onUnmounted(clearSuccessNoticeTimer)
           </form>
         </section>
 
+        <section class="danger-account-zone sz-panel" aria-label="危险操作">
+          <div>
+            <p class="sz-chip is-warm"><AlertTriangle :size="15" /> 危险操作</p>
+            <h2>注销账号</h2>
+            <span>注销后账号会立即停用，头像和健康档案隐私信息会被清理。</span>
+          </div>
+          <button class="delete-account-button" type="button" @click="openDeleteAccountDialog">
+            <Trash2 :size="17" />
+            注销账号
+          </button>
+        </section>
+
         <form class="profile-form sz-panel" @submit.prevent="save">
           <n-skeleton v-if="loading" text :repeat="4" />
 
@@ -463,6 +503,31 @@ onUnmounted(clearSuccessNoticeTimer)
         </article>
       </aside>
     </section>
+
+    <n-modal v-model:show="deleteConfirmVisible" preset="card" class="delete-account-modal" title="确认注销账号">
+      <section class="delete-confirm-panel">
+        <span class="delete-warning-icon"><AlertTriangle :size="24" /></span>
+        <div>
+          <h3>这会立即停用当前账号</h3>
+          <p>注销后你将无法继续登录此账号，头像、收藏和健康档案隐私信息会被清理，推荐历史会以匿名方式保留。</p>
+        </div>
+        <label>
+          <span>请输入“注销账号”以确认</span>
+          <n-input v-model:value="deleteConfirmText" placeholder="注销账号" />
+        </label>
+        <div class="delete-confirm-actions">
+          <button type="button" class="cancel-delete-button" @click="deleteConfirmVisible = false">取消</button>
+          <button
+            type="button"
+            class="confirm-delete-button"
+            :disabled="deletingAccount || deleteConfirmText !== '注销账号'"
+            @click="handleDeleteAccount"
+          >
+            {{ deletingAccount ? '正在注销账号' : '确认注销账号' }}
+          </button>
+        </div>
+      </section>
+    </n-modal>
   </div>
 </template>
 
@@ -814,6 +879,129 @@ h1 {
   opacity: 0.72;
 }
 
+.danger-account-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px;
+  border-color: rgba(217, 93, 69, 0.22);
+  background:
+    linear-gradient(135deg, rgba(255, 236, 228, 0.68), rgba(255, 250, 241, 0.96)),
+    var(--sz-surface);
+}
+
+.danger-account-zone > div {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.danger-account-zone h2 {
+  color: var(--sz-evergreen);
+}
+
+.danger-account-zone span {
+  color: var(--sz-muted);
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+.delete-account-button,
+.confirm-delete-button,
+.cancel-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.delete-account-button {
+  flex: 0 0 auto;
+  padding: 0 16px;
+  border: 1px solid rgba(217, 93, 69, 0.28);
+  color: #b73f2d;
+  background: rgba(255, 236, 228, 0.84);
+}
+
+.delete-account-button:hover {
+  box-shadow: 0 12px 24px rgba(217, 93, 69, 0.14);
+  transform: translateY(-1px);
+}
+
+.delete-confirm-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.delete-warning-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  color: #b73f2d;
+  background: rgba(255, 236, 228, 0.92);
+}
+
+.delete-confirm-panel h3 {
+  color: var(--sz-evergreen);
+  font-size: 22px;
+}
+
+.delete-confirm-panel p {
+  color: var(--sz-text);
+  line-height: 1.8;
+}
+
+.delete-confirm-panel label {
+  display: grid;
+  gap: 8px;
+}
+
+.delete-confirm-panel label span {
+  color: var(--sz-text);
+  font-weight: 900;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cancel-delete-button,
+.confirm-delete-button {
+  padding: 0 16px;
+}
+
+.cancel-delete-button {
+  border: 1px solid rgba(35, 107, 75, 0.16);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+}
+
+.confirm-delete-button {
+  border: 0;
+  color: #ffffff;
+  background: #b73f2d;
+  box-shadow: 0 12px 22px rgba(183, 63, 45, 0.2);
+}
+
+.confirm-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  box-shadow: none;
+}
+
 .save-success {
   display: flex;
   align-items: center;
@@ -1107,6 +1295,17 @@ h2 {
 
   .account-form {
     grid-template-columns: 1fr;
+  }
+
+  .danger-account-zone,
+  .delete-confirm-actions {
+    display: grid;
+  }
+
+  .delete-account-button,
+  .cancel-delete-button,
+  .confirm-delete-button {
+    width: 100%;
   }
 
   .field-card.is-wide {

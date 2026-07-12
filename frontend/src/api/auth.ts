@@ -41,3 +41,7 @@ export function uploadCurrentUserAvatar(file: File) {
     },
   }).then((res) => res.data)
 }
+
+export function deleteCurrentUser() {
+  return http.delete<null>('/auth/me').then((res) => res.data)
+}
