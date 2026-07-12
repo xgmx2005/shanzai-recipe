@@ -318,12 +318,24 @@ def add_work_table(doc: Document):
 
 
 def add_screenshot_section(doc: Document):
+    add_body(doc, """
+    界面说明按用户端和维护端两部分展开。用户端覆盖注册登录、首页、健康档案、对话推荐、推荐结果、菜谱详情、推荐历史和购物清单；维护端覆盖概览看板、菜谱管理和食材管理。整体流程体现用户先建立账号和健康档案，再通过对话生成推荐，最后进入详情、收藏、历史或购物清单完成闭环。
+    """)
     screenshots = [
         ("01-login.png", "图 3 登录/注册入口：磨砂玻璃风格登录页，支持普通用户和维护员进入系统"),
         ("02-user-home.png", "图 4 用户首页：今日饮食工作台，展示推荐入口、健康状态和随机菜谱卡片"),
         ("03-profile.png", "图 5 健康档案：维护身高体重、饮食目标、忌口和账号头像"),
         ("04-recommend.png", "图 6 智能推荐：对话式收集条件，识别饮食目标、时间、人数和食材"),
         ("05-shopping-list.png", "图 7 购物清单：按推荐菜谱生成可勾选采购清单"),
+        ("06-recommend-ready.png", "图 8 智能推荐对话完成：识别目标、人数、食材后提示生成推荐"),
+        ("07-recommend-result-summary.png", "图 9 推荐结果讲解：结合目标和食材生成 AI 推荐分析、健康提示与购物提示"),
+        ("08-recommend-result-list.png", "图 10 推荐菜谱列表：展示匹配度、营养摘要、已利用食材、仍需购买与菜单篮"),
+        ("09-recipe-detail.png", "图 11 菜谱详情页：展示营养数据、食材清单和详细做法步骤"),
+        ("10-recommendation-history.png", "图 12 推荐历史页：回看每次推荐条件、AI 分析和本次推荐结果"),
+        ("11-register.png", "图 13 注册页：新用户创建账号，后续进入健康档案引导"),
+        ("12-admin-dashboard.png", "图 14 维护端概览看板：统计用户、菜谱、食材、推荐次数和目标分布"),
+        ("13-admin-recipes.png", "图 15 菜谱管理页：维护菜谱名称、目标、营养、上下架状态"),
+        ("14-admin-ingredients.png", "图 16 食材管理页：维护食材单位、热量、蛋白/脂肪/碳水和别名"),
     ]
     for name, caption in screenshots:
         add_image(doc, ROOT / "docs" / "ui" / "screenshots" / name, caption, 15.2)
