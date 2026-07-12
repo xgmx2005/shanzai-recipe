@@ -58,6 +58,34 @@ public class AvatarStorageService {
         }
     }
 
+    public void deleteAvatar(Long userId) {
+        Path userDir = avatarRoot.resolve("user-" + userId).normalize();
+        if (!userDir.startsWith(avatarRoot) || !Files.exists(userDir)) {
+            return;
+        }
+
+        try (var files = Files.list(userDir)) {
+            files
+                    .filter(path -> path.getFileName().toString().startsWith("avatar.")
+                            || path.getFileName().toString().startsWith("upload-"))
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException ignored) {
+                            // Avatar cleanup should not block account deletion.
+                        }
+                    });
+        } catch (IOException ignored) {
+            // Avatar cleanup should not block account deletion.
+        }
+
+        try {
+            Files.deleteIfExists(userDir);
+        } catch (IOException ignored) {
+            // The directory may still contain unrelated files; leaving it is safe.
+        }
+    }
+
     private void clearOldAvatars(Path userDir, Path currentAvatar) throws IOException {
         try (var files = Files.list(userDir)) {
             files

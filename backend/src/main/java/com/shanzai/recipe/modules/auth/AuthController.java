@@ -5,6 +5,7 @@ import com.shanzai.recipe.security.JwtUser;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -55,5 +56,12 @@ public class AuthController {
     ) {
         JwtUser jwtUser = (JwtUser) authentication.getPrincipal();
         return ApiResponse.ok(authService.uploadAvatar(jwtUser, file));
+    }
+
+    @DeleteMapping("/me")
+    public ApiResponse<Void> deleteMe(Authentication authentication) {
+        JwtUser jwtUser = (JwtUser) authentication.getPrincipal();
+        authService.deleteCurrentUser(jwtUser);
+        return ApiResponse.ok(null);
     }
 }

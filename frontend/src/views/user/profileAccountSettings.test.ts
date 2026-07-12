@@ -64,4 +64,18 @@ describe('profile account settings', () => {
     expect(storeSource).toContain('avatarUrl')
     expect(storeSource).not.toContain('setAvatarTheme')
   })
+
+  it('offers a guarded production-grade account deletion flow', () => {
+    expect(authSource).toContain('deleteCurrentUser')
+    expect(authSource).toContain("delete<null>('/auth/me'")
+    expect(storeSource).toContain('deleteAccount')
+    expect(storeSource).toContain('await deleteCurrentUser()')
+    expect(storeSource).toContain('this.logout()')
+    expect(profileSource).toContain('danger-account-zone')
+    expect(profileSource).toContain('deleteConfirmText')
+    expect(profileSource).toContain('确认注销账号')
+    expect(profileSource).toContain('注销账号')
+    expect(profileSource).toContain("deleteConfirmText !== '注销账号'")
+    expect(profileSource).toContain('handleDeleteAccount')
+  })
 })
