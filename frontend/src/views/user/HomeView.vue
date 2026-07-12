@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, ClipboardList, Flame, Heart, Leaf, Sparkles, Target, Timer } from '@lucide/vue'
+import { ArrowRight, Flame, Heart, Sparkles, Timer } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
 import { getProfileSummary } from '@/api/profile'
@@ -31,7 +31,6 @@ const goalLabel = computed(() => {
   return labels[profileSummary.value?.dietGoal ?? auth.profile.dietGoal]
 })
 
-const heroRecipe = computed(() => recipes.value[0])
 const dailyCalorieTarget = computed(
   () => profileSummary.value?.dailyCalorieTarget ?? auth.profile.dailyCalorieTarget ?? 1600,
 )
@@ -41,11 +40,6 @@ const bmiStatus = computed(() => {
   if (bmiValue.value < 18.5) return '偏低'
   if (bmiValue.value > 24) return '偏高'
   return '正常'
-})
-
-const featuredTags = computed(() => {
-  const tags = heroRecipe.value?.tags ?? []
-  return tags.length ? tags.slice(0, 3) : ['高蛋白 低脂肪', '富含膳食纤维', '适合减脂人群']
 })
 
 function toCard(recipe: RecipeSummary): RecipeCardModel {
@@ -59,6 +53,15 @@ function toCard(recipe: RecipeSummary): RecipeCardModel {
     tags: [...recipe.healthTags, ...recipe.tasteTags],
     reason: recipe.description,
   }
+}
+
+function sampleRecipes(items: RecipeCardModel[], limit: number) {
+  if (items.length <= limit) return [...items]
+  return [...items]
+    .map((item) => ({ item, rank: Math.random() }))
+    .sort((left, right) => left.rank - right.rank)
+    .slice(0, limit)
+    .map(({ item }) => item)
 }
 
 function setFavoriteId(id: number, favorite: boolean) {
@@ -154,7 +157,7 @@ onMounted(async () => {
 
   try {
     const recipeList = await listRecipes()
-    recipes.value = recipeList.slice(0, 4).map(toCard)
+    recipes.value = sampleRecipes(recipeList.map(toCard), 4)
   } catch {
     warnings.push('菜谱推荐加载失败')
   }
@@ -186,118 +189,84 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="home-view">
-    <section class="hero">
+  <div class="home-view home-workbench">
+    <section class="workbench-hero">
       <div class="hero-copy">
         <p class="hero-eyebrow">膳哉智能轻饮食助手</p>
-        <h1>今天想吃得更合适一点</h1>
+        <h1>今天这顿，交给膳哉来配</h1>
         <p>
-          根据你的健康档案、已有食材和烹饪时间，先匹配营养目标，再给出清楚的推荐理由。
+          结合你的健康档案、饮食目标、烹饪时间和忌口，膳哉会把想法整理成一份清楚可执行的推荐。
         </p>
         <div class="hero-actions">
           <n-button class="primary-action" type="primary" size="large" @click="router.push('/user/recommend')">
             <template #icon>
               <n-icon><Sparkles /></n-icon>
             </template>
-            开始推荐
+            开始智能推荐
           </n-button>
           <n-button class="secondary-action" secondary size="large" @click="router.push('/user/profile')">
-            完善档案
+            完善健康档案
           </n-button>
         </div>
       </div>
-      <div v-if="heroRecipe" class="featured-recipe">
-        <img
-          :src="cardImage(heroRecipe)"
-          :alt="heroRecipe.name"
-          :style="{ objectPosition: cardImagePosition(heroRecipe) }"
-          @error="replaceImageWithFallback($event)"
-        />
-        <div class="featured-copy">
-          <div class="featured-head">
-            <span>今日推荐</span>
-            <small>{{ goalLabel }}</small>
-          </div>
-          <h2>{{ heroRecipe.name }}</h2>
-          <ul>
-            <li v-for="tag in featuredTags" :key="tag"><Flame /> {{ tag }}</li>
-          </ul>
-          <div class="featured-meta">
-            <span><Flame /> {{ heroRecipe.calories }} kcal</span>
-            <span><Timer /> {{ heroRecipe.time ?? 25 }} 分钟</span>
-            <button type="button" @click="openRecipeDetail(heroRecipe.id)">查看详情</button>
-          </div>
-        </div>
+      <div class="daily-status-panel" aria-label="今日饮食状态">
+        <article>
+          <span>BMI</span>
+          <strong>{{ bmiValue.toFixed(1) }}</strong>
+          <small>{{ bmiStatus }}</small>
+        </article>
+        <article>
+          <span>目标热量</span>
+          <strong>{{ dailyCalorieTarget }}</strong>
+          <small>kcal / 日</small>
+        </article>
+        <article>
+          <span>饮食目标</span>
+          <strong>{{ goalLabel }}</strong>
+          <small>来自健康档案</small>
+        </article>
+        <article>
+          <span>累计推荐记录</span>
+          <strong>{{ recommendationCount }}</strong>
+          <small>次</small>
+        </article>
       </div>
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
     <n-skeleton v-if="loading" text :repeat="3" />
 
-    <section class="summary-grid">
-      <article class="metric-card bmi-card">
-        <div class="metric-icon green"><Leaf /></div>
-        <div>
-          <span>BMI</span>
-          <strong>{{ bmiValue.toFixed(1) }}</strong>
-          <em>{{ bmiStatus }}</em>
-          <small>健康范围 18.5 - 24.0</small>
-        </div>
-      </article>
-      <article class="metric-card">
-        <div class="metric-icon orange"><Flame /></div>
-        <div>
-          <span>今日目标热量</span>
-          <strong>{{ dailyCalorieTarget }} <small>kcal</small></strong>
-          <small>根据你的目标自动计算</small>
-        </div>
-      </article>
-      <article class="metric-card">
-        <div class="metric-icon lime"><Target /></div>
-        <div>
-          <span>今日目标</span>
-          <strong>{{ goalLabel }}</strong>
-          <small>保持均衡，维持健康体重</small>
-        </div>
-      </article>
-      <article class="metric-card">
-        <div class="metric-icon gold"><Sparkles /></div>
-        <div>
-          <span>推荐次数</span>
-          <strong>{{ recommendationCount }} <small>次</small></strong>
-          <small>最近 7 天生成推荐</small>
-        </div>
-      </article>
-    </section>
-
-    <section class="quick-panel">
-      <h2 class="sz-section-title">快速入口</h2>
-      <div class="quick-actions">
+    <section class="workbench-flow">
+      <div class="section-head">
+        <h2 class="sz-section-title">从想法到采购清单</h2>
+        <p>膳哉把“想吃什么”拆成可以执行的三步。</p>
+      </div>
+      <div class="flow-steps">
         <button type="button" @click="router.push('/user/recommend')">
-          <span class="quick-icon leaf"><Leaf /></span>
-          <strong>快速输入食材</strong>
-          <small>告诉我你有什么食材</small>
+          <span class="flow-index">01</span>
+          <strong>说出想吃什么</strong>
+          <small>用对话告诉膳哉你的食材、口味、时间和人数。</small>
+          <ArrowRight />
+        </button>
+        <button type="button" @click="router.push('/user/recommend')">
+          <span class="flow-index">02</span>
+          <strong>生成推荐菜谱</strong>
+          <small>结合健康档案和知识库，生成匹配理由清楚的菜谱。</small>
           <ArrowRight />
         </button>
         <button type="button" @click="router.push('/user/shopping-lists')">
-          <span class="quick-icon grain"><ClipboardList /></span>
-          <strong>我的菜单</strong>
-          <small>查看菜单与购物清单</small>
-          <ArrowRight />
-        </button>
-        <button type="button" @click="router.push('/user/favorites')">
-          <span class="quick-icon tomato"><Heart /></span>
-          <strong>收藏菜谱</strong>
-          <small>查看我收藏的菜谱</small>
+          <span class="flow-index">03</span>
+          <strong>整理购物清单</strong>
+          <small>从推荐、详情或收藏页，把缺少食材整理成清单。</small>
           <ArrowRight />
         </button>
       </div>
     </section>
 
-    <section class="recipes-panel">
+    <section class="recipes-panel inspiration-recipes">
       <div class="section-head">
-        <h2 class="sz-section-title">最近推荐</h2>
-        <router-link to="/user/recommend/result">查看全部</router-link>
+        <h2 class="sz-section-title">今天也可以这样吃</h2>
+        <router-link to="/user/history">查看推荐历史</router-link>
       </div>
       <div class="recipe-grid">
         <article
@@ -349,7 +318,7 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.hero {
+.workbench-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
   gap: clamp(22px, 3.2vw, 54px);
@@ -424,217 +393,38 @@ h1 {
   background: rgba(255, 255, 255, 0.66);
 }
 
-.featured-recipe {
+.daily-status-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(228px, 0.82fr);
-  justify-self: end;
-  width: 100%;
-  max-width: 600px;
-  height: 272px;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.92);
-  border-radius: 18px;
-  background: rgba(255, 253, 248, 0.94);
-  box-shadow: 0 18px 34px rgba(23, 37, 31, 0.14);
-}
-
-.featured-recipe img {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: cover;
-}
-
-.featured-copy {
-  display: grid;
-  align-content: start;
-  gap: 9px;
-  min-width: 0;
-  padding: 18px 22px;
-}
-
-.featured-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.featured-head small {
-  color: var(--sz-muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.featured-copy h2 {
-  margin: 0;
-  color: var(--sz-ink);
-  font-size: 21px;
-  line-height: 1.32;
-}
-
-.featured-copy > span {
-  justify-self: start;
-  padding: 5px 12px;
-  border-radius: var(--sz-radius-pill);
-  color: var(--sz-green-dark);
-  background: var(--sz-mint);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.featured-copy ul {
-  display: grid;
-  gap: 5px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  color: var(--sz-text);
-  font-size: 14px;
-}
-
-.featured-copy li,
-.featured-meta,
-.featured-meta span {
-  display: inline-flex;
-  align-items: center;
-}
-
-.featured-copy li {
-  gap: 8px;
-}
-
-.featured-copy li svg,
-.featured-meta svg {
-  width: 16px;
-  height: 16px;
-  color: var(--sz-muted);
-}
-
-.featured-meta {
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-top: 2px;
-  color: var(--sz-muted);
-  font-size: 13px;
-}
-
-.featured-meta span {
-  gap: 5px;
-}
-
-.featured-meta button {
-  flex-basis: 100%;
-  width: fit-content;
-  min-height: 34px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 10px;
-  color: #ffffff;
-  background: var(--sz-green-dark);
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.metric-card {
-  min-height: 116px;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 22px;
-  border: 1px solid rgba(227, 218, 203, 0.88);
-  border-radius: 16px;
-  background: var(--sz-surface);
-  box-shadow: 0 10px 24px rgba(23, 37, 31, 0.07);
-}
-
-.metric-card span {
-  display: block;
-  color: var(--sz-muted);
-  font-weight: 700;
-}
-
-.metric-card strong {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  margin-top: 5px;
-  color: var(--sz-deep-green);
-  font-size: 28px;
-  line-height: 1.1;
-}
-
-.metric-card strong small {
-  color: var(--sz-text);
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.metric-card small {
-  display: block;
-  margin-top: 7px;
-  color: var(--sz-muted);
-}
-
-.bmi-card em {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 3px 9px;
-  border-radius: var(--sz-radius-pill);
-  color: var(--sz-green-dark);
-  background: var(--sz-mint);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 800;
-  vertical-align: text-bottom;
-}
-
-.metric-icon {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-}
-
-.metric-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.metric-icon.green {
-  color: var(--sz-green-dark);
-  background: var(--sz-mint);
-}
-
-.metric-icon.orange {
-  color: #f47722;
-  background: #fae4dc;
-}
-
-.metric-icon.lime {
-  color: #73a72f;
-  background: #e8f3d7;
-}
-
-.metric-icon.gold {
-  color: #e79d23;
-  background: #fff0ce;
-}
-
-.quick-panel {
-  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  width: min(100%, 520px);
+  justify-self: end;
+}
+
+.daily-status-panel article {
+  display: grid;
+  align-content: center;
+  min-height: 116px;
+  padding: 18px;
+  border: 1px solid rgba(223, 210, 191, 0.78);
+  border-radius: 18px;
+  background: rgba(255, 253, 247, 0.86);
+  box-shadow: 0 14px 28px rgba(23, 37, 31, 0.08);
+}
+
+.daily-status-panel span,
+.daily-status-panel small {
+  overflow-wrap: anywhere;
+  color: var(--sz-muted);
+  font-weight: 800;
+}
+
+.daily-status-panel strong {
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+  color: var(--sz-evergreen);
+  font-size: 28px;
+  line-height: 1.15;
 }
 
 .section-head {
@@ -653,25 +443,28 @@ h1 {
   font-weight: 800;
 }
 
-.quick-actions {
+.workbench-flow {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 34px;
+  gap: 14px;
 }
 
-.quick-actions button {
-  position: relative;
+.flow-steps {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  column-gap: 16px;
-  align-items: center;
-  min-height: 86px;
-  padding: 18px 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.flow-steps button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  gap: 8px 14px;
+  min-height: 150px;
+  padding: 18px;
   border: 1px solid rgba(227, 218, 203, 0.88);
-  border-radius: 14px;
+  border-radius: 18px;
   color: var(--sz-ink);
-  background: var(--sz-surface);
+  background: rgba(255, 253, 247, 0.94);
   box-shadow: var(--sz-shadow-soft);
   cursor: pointer;
   text-align: left;
@@ -681,57 +474,41 @@ h1 {
     transform 0.18s ease;
 }
 
-.quick-actions button:hover {
+.flow-steps button:hover {
   border-color: var(--sz-line-strong);
   box-shadow: var(--sz-shadow);
   transform: translateY(-2px);
 }
 
-.quick-actions strong {
-  font-size: 18px;
+.flow-index {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.quick-actions small {
-  grid-column: 2;
+.flow-steps strong {
+  grid-column: 1 / 3;
+  color: var(--sz-evergreen);
+  font-size: 20px;
+}
+
+.flow-steps small {
+  grid-column: 1 / 3;
   color: var(--sz-muted);
   font-size: 14px;
+  line-height: 1.7;
 }
 
-.quick-actions button > svg {
-  grid-column: 3;
-  grid-row: 1 / 3;
-  width: 22px;
-  height: 22px;
+.flow-steps svg {
+  grid-column: 2;
+  grid-row: 1;
+  width: 20px;
+  height: 20px;
   color: var(--sz-muted);
-}
-
-.quick-icon {
-  display: grid;
-  grid-row: 1 / 3;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-}
-
-.quick-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.quick-icon.leaf {
-  color: #ffffff;
-  background: #65b991;
-}
-
-.quick-icon.grain {
-  color: #ffffff;
-  background: var(--sz-grain);
-}
-
-.quick-icon.tomato {
-  color: #ffffff;
-  background: #f26369;
 }
 
 .recipes-panel {
@@ -765,7 +542,7 @@ h1 {
 
 .home-recipe-image {
   position: relative;
-  aspect-ratio: 2.48 / 1;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
 }
 
@@ -821,7 +598,7 @@ h1 {
 .home-recipe-body {
   display: grid;
   gap: 9px;
-  padding: 16px;
+  padding: 14px;
 }
 
 .home-recipe-body h3 {
@@ -866,23 +643,18 @@ h1 {
 }
 
 @media (max-width: 980px) {
-  .summary-grid {
-    grid-template-columns: 1fr 1fr;
+  .workbench-hero,
+  .flow-steps {
+    grid-template-columns: 1fr;
   }
 
-  .hero {
-    grid-template-columns: 1fr;
+  .workbench-hero {
     padding: 26px;
   }
 
-  .featured-recipe {
+  .daily-status-panel {
     justify-self: stretch;
-    max-width: none;
-    height: 260px;
-  }
-
-  .featured-copy {
-    align-content: center;
+    width: 100%;
   }
 
   .recipe-grid {
@@ -891,28 +663,17 @@ h1 {
 }
 
 @media (max-width: 640px) {
-  .hero,
-  .summary-grid,
-  .quick-actions,
+  .daily-status-panel,
   .recipe-grid {
     grid-template-columns: 1fr;
   }
 
-  .hero {
+  .workbench-hero {
     padding: 22px;
   }
 
   h1 {
     font-size: 30px;
-  }
-
-  .featured-recipe {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-
-  .featured-recipe img {
-    height: 190px;
   }
 }
 </style>
