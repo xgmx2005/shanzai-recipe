@@ -78,4 +78,10 @@ describe('profile account settings', () => {
     expect(profileSource).toContain("deleteConfirmText !== '注销账号'")
     expect(profileSource).toContain('handleDeleteAccount')
   })
+
+  it('places account deletion after the main health profile settings', () => {
+    expect(profileSource.indexOf('profile-form sz-panel')).toBeLessThan(
+      profileSource.indexOf('danger-account-zone'),
+    )
+  })
 })

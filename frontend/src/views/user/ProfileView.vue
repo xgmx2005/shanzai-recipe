@@ -379,18 +379,6 @@ onUnmounted(clearSuccessNoticeTimer)
           </form>
         </section>
 
-        <section class="danger-account-zone sz-panel" aria-label="危险操作">
-          <div>
-            <p class="sz-chip is-warm"><AlertTriangle :size="15" /> 危险操作</p>
-            <h2>注销账号</h2>
-            <span>注销后账号会立即停用，头像和健康档案隐私信息会被清理。</span>
-          </div>
-          <button class="delete-account-button" type="button" @click="openDeleteAccountDialog">
-            <Trash2 :size="17" />
-            注销账号
-          </button>
-        </section>
-
         <form class="profile-form sz-panel" @submit.prevent="save">
           <n-skeleton v-if="loading" text :repeat="4" />
 
@@ -478,6 +466,18 @@ onUnmounted(clearSuccessNoticeTimer)
             {{ saving ? '正在保存健康档案' : '保存档案并影响下一次推荐' }}
           </button>
         </form>
+
+        <section class="danger-account-zone sz-panel" aria-label="危险操作">
+          <div>
+            <p class="sz-chip is-warm"><AlertTriangle :size="15" /> 危险操作</p>
+            <h2>注销账号</h2>
+            <span>注销后账号会立即停用，头像和健康档案隐私信息会被清理。</span>
+          </div>
+          <button class="delete-account-button" type="button" @click="openDeleteAccountDialog">
+            <Trash2 :size="17" />
+            注销账号
+          </button>
+        </section>
       </div>
 
       <aside class="insight-column">
