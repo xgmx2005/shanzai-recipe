@@ -102,9 +102,11 @@ def add_bullets(doc: Document, items: list[str]):
 
 
 def add_numbered(doc: Document, items: list[str]):
-    for item in items:
-        p = doc.add_paragraph(style="List Number")
-        run = p.add_run(item)
+    for index, item in enumerate(items, start=1):
+        p = doc.add_paragraph()
+        p.paragraph_format.left_indent = Pt(18)
+        p.paragraph_format.first_line_indent = Pt(-18)
+        run = p.add_run(f"{index}. {item}")
         run.font.name = "Microsoft YaHei"
         run._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft YaHei")
 
@@ -224,7 +226,7 @@ def add_info_table(doc: Document):
     table.style = "Table Grid"
     rows = [
         ("组号", "待填写"),
-        ("组成员", "成员A：学号/姓名/班级（待填写）\n成员B：学号/姓名/班级（待填写）"),
+        ("组成员", "李天灿：学号/班级（待填写），GitHub：xgmx2005 / LiTiancan\n陈颜西：学号/班级（待填写），GitHub：cyx-dawang"),
         ("实验日期", "2026 年 7 月 12 日"),
         ("课程名称", "专业实训与技能达标"),
         ("实验名称（选题名称）", "膳哉：智能菜谱助手"),
@@ -306,8 +308,8 @@ def add_work_table(doc: Document):
         set_cell_text(cell, text, True)
         set_cell_shading(cell, "DDF2E8")
     rows = [
-        ("成员A（待填写）", "需求分析、数据库设计、后端接口、推荐算法、AI 接入、Git 合并与测试", "55%", "Spring Boot 后端、MySQL 脚本、DeepSeek 推荐解释、接口文档、测试验证"),
-        ("成员B（待填写）", "前端页面、交互流程、UI 风格统一、截图整理、用户端体验优化", "45%", "Vue 前端、健康档案页、智能推荐页、购物清单、收藏页、维护端页面"),
+        ("李天灿", "产品规划、需求分析、数据库设计、后端接口、推荐算法、AI 接入、前后端整合、页面体验优化、Git 合并与测试", "约 85%", "Spring Boot 后端、MySQL 脚本、DeepSeek 推荐解释、核心前端闭环、接口文档、测试验证、实验报告"),
+        ("陈颜西", "前端脚手架、基础布局、首批页面实现、前后端接口初次对接、视觉风格探索", "约 15%", "Vue 前端基础布局、登录/用户端首批页面、前后端 API 对接初版"),
     ]
     for values in rows:
         row = table.add_row()
@@ -320,7 +322,8 @@ def add_screenshot_section(doc: Document):
         ("01-login.png", "图 3 登录/注册入口：磨砂玻璃风格登录页，支持普通用户和维护员进入系统"),
         ("02-user-home.png", "图 4 用户首页：今日饮食工作台，展示推荐入口、健康状态和随机菜谱卡片"),
         ("03-profile.png", "图 5 健康档案：维护身高体重、饮食目标、忌口和账号头像"),
-        ("04-recommend.png", "图 6 智能推荐：对话式收集条件，生成知识库推荐结果"),
+        ("04-recommend.png", "图 6 智能推荐：对话式收集条件，识别饮食目标、时间、人数和食材"),
+        ("05-shopping-list.png", "图 7 购物清单：按推荐菜谱生成可勾选采购清单"),
     ]
     for name, caption in screenshots:
         add_image(doc, ROOT / "docs" / "ui" / "screenshots" / name, caption, 15.2)
@@ -366,12 +369,14 @@ def build_report():
     doc.add_heading("（二）成员分工与团队协作情况", level=2)
     add_work_table(doc)
     add_body(doc, """
-    团队使用 GitHub 作为代码托管平台，采用 main 稳定分支和功能分支开发方式。提交信息统一使用中文，按照 feat、fix、docs、style、refactor、test 等类型描述具体动作。开发过程中每完成一个较清晰的功能点就进行提交，便于回溯问题和展示贡献。
+    团队使用 GitHub 作为代码托管平台，采用 main 稳定分支和功能分支开发方式。提交信息统一使用中文，按照 feat、fix、docs、style、refactor、test 等类型描述具体动作。开发过程中每完成一个较清晰的功能点就进行提交，便于回溯问题和展示贡献。根据 Git 作者统计，李天灿对应账号 xgmx2005 / LiTiancan 共 142 次提交，陈颜西对应账号 cyx-dawang 共 3 次提交，另有早期项目初始化账号 L2463323447 共 3 次提交。
 
     项目开发后期多次进行本地验证，包括后端 Maven 测试、前端 Vitest 单元测试和 Vite 生产构建。最近一次主要验证结果为：后端 155 个测试通过，前端 54 个测试通过，前端生产构建成功。
     """)
     add_code(doc, """
     # Git 协作示例
+    贡献统计：xgmx2005/LiTiancan（李天灿）142 次，cyx-dawang（陈颜西）3 次，L2463323447（初始化账号）3 次
+
     44ff677 fix: 调整注销账号入口位置
     0ccebf0 merge: 合并账号注销功能
     7b2de53 feat: 添加生产级账号注销流程
