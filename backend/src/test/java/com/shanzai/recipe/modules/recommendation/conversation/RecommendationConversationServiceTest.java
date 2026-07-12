@@ -392,7 +392,7 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
-    void patchContextWithBlankIngredientDoesNotBecomeReadyToConfirm() {
+    void patchContextWithBlankIngredientCanBecomeReadyToConfirmWhenRequiredFieldsExist() {
         RecommendationConversationEntity conversation = activeConversation(10L, 7L);
         stubWritableConversation(conversation);
         when(messageMapper.selectList(any())).thenReturn(List.of());
@@ -411,8 +411,8 @@ class RecommendationConversationServiceTest {
                 )
         );
 
-        assertEquals(ConversationStage.INGREDIENTS, response.stage());
-        assertEquals(ConversationStatus.ACTIVE, response.status());
+        assertEquals(ConversationStage.CONFIRM, response.stage());
+        assertEquals(ConversationStatus.READY_TO_CONFIRM, response.status());
         assertEquals(List.of(), response.context().availableIngredients());
     }
 
@@ -561,7 +561,7 @@ class RecommendationConversationServiceTest {
     }
 
     @Test
-    void confirmRejectsReadyConversationWithoutEffectiveIngredients() throws Exception {
+    void confirmAllowsReadyConversationWithoutEffectiveIngredients() throws Exception {
         RecommendationConversationContext context = new RecommendationConversationContext(
                 "清淡晚餐",
                 "FAT_LOSS",
@@ -579,12 +579,16 @@ class RecommendationConversationServiceTest {
         conversation.setStatus(ConversationStatus.READY_TO_CONFIRM.name());
         conversation.setContextJson(new ObjectMapper().writeValueAsString(context));
         stubWritableConversation(conversation);
+        RecommendationResponse expected = new RecommendationResponse(99L, "summary", "health", "shopping", true, List.of());
+        when(recommendationService.recommend(any(), any())).thenReturn(expected);
 
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> service.confirm(7L, 10L));
+        RecommendationResponse response = service.confirm(7L, 10L);
 
-        assertEquals("推荐条件尚未确认完整", exception.getMessage());
-        verifyNoInteractions(recommendationService, historyService);
+        assertSame(expected, response);
+        ArgumentCaptor<RecommendationRequest> requestCaptor = ArgumentCaptor.forClass(RecommendationRequest.class);
+        verify(recommendationService).recommend(eq(7L), requestCaptor.capture());
+        assertEquals(List.of(), requestCaptor.getValue().availableIngredients());
+        verify(historyService).attachConversationContext(7L, 99L, context);
     }
 
     @Test

@@ -45,6 +45,7 @@ CREATE TABLE user_profile (
     allergy_ingredients VARCHAR(255),
     cooking_time_preference INT,
     daily_calorie_target INT,
+    profile_completed TINYINT NOT NULL DEFAULT 0,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_profile_user (user_id),
     CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES `user` (id)

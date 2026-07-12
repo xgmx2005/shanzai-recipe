@@ -43,7 +43,7 @@ async function submit() {
     const payload = validateForm()
     await auth.register(payload.username, payload.password, payload.nickname)
     message.success('注册成功')
-    await router.push('/user/home')
+    await router.push('/user/onboarding')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '注册失败'
     message.error(error.value)

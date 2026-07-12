@@ -19,6 +19,40 @@ describe('profile account settings', () => {
     expect(profileSource).toContain('显示名称')
   })
 
+  it('presents the health profile as a personal diet settings center', () => {
+    expect(profileSource).toContain('personal-diet-center')
+    expect(profileSource).toContain('profile-command-center')
+    expect(profileSource).toContain('profile-summary-strip')
+    expect(profileSource).toContain('profile-settings-layout')
+    expect(profileSource).toContain('个人饮食设置中心')
+    expect(profileSource).toContain('推荐会使用这份档案')
+    expect(profileSource).toContain('推荐偏好配置')
+    expect(profileSource).toContain('身份与头像')
+    expect(profileSource).not.toContain('profile-hero')
+  })
+
+  it('keeps the profile settings details polished and non-misleading', () => {
+    expect(profileSource).toContain('实时预览')
+    expect(profileSource).toContain('position: sticky')
+    expect(profileSource).toContain('top: 92px')
+    expect(profileSource).not.toContain('已同步')
+    expect(profileSource).not.toContain('account-preview')
+  })
+
+  it('keeps uploaded avatars aligned with the visible avatar frame', () => {
+    expect(profileSource).toContain('.account-avatar img')
+    expect(profileSource).toContain('border-radius: inherit')
+    expect(profileSource).toContain('object-position: center')
+    expect(profileSource).not.toContain('profile-command-center::after')
+  })
+
+  it('treats save success messages as temporary notices', () => {
+    expect(profileSource).toContain('showSuccessNotice')
+    expect(profileSource).toContain('window.setTimeout')
+    expect(profileSource).toContain('clearSuccessNoticeTimer')
+    expect(profileSource).toContain('onUnmounted(clearSuccessNoticeTimer)')
+  })
+
   it('persists account text and avatar theme through the auth api and store', () => {
     expect(authSource).toContain('updateCurrentUser')
     expect(authSource).toContain('uploadCurrentUserAvatar')

@@ -18,6 +18,7 @@ public record ProfileRequest(
     List<@Size(max = 30) String> tastePreferences,
     List<@Size(max = 30) String> avoidIngredients,
     List<@Size(max = 30) String> allergyIngredients,
-    @Min(1) @Max(240) Integer cookingTimePreference
+    @Min(1) @Max(240) Integer cookingTimePreference,
+    Boolean profileCompleted
 ) {
 }

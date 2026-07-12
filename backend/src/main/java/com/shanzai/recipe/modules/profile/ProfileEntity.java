@@ -23,6 +23,7 @@ public class ProfileEntity {
     private String allergyIngredients;
     private Integer cookingTimePreference;
     private Integer dailyCalorieTarget;
+    private Boolean profileCompleted;
     private LocalDateTime updatedAt;
 
     public Long getId() {
@@ -127,6 +128,14 @@ public class ProfileEntity {
 
     public void setDailyCalorieTarget(Integer dailyCalorieTarget) {
         this.dailyCalorieTarget = dailyCalorieTarget;
+    }
+
+    public Boolean getProfileCompleted() {
+        return profileCompleted;
+    }
+
+    public void setProfileCompleted(Boolean profileCompleted) {
+        this.profileCompleted = profileCompleted;
     }
 
     public LocalDateTime getUpdatedAt() {

@@ -44,7 +44,8 @@ class ProfileServiceTest {
                 List.of("清淡", "低脂"),
                 List.of("辣椒"),
                 List.of(),
-                25
+                25,
+                false
             )
         );
 
@@ -58,5 +59,38 @@ class ProfileServiceTest {
         assertEquals("辣椒", saved.getAvoidIngredients());
         assertEquals(DietGoal.FAT_LOSS.name(), saved.getDietGoal());
         assertEquals(List.of("清淡", "低脂"), response.tastePreferences());
+    }
+
+    @Test
+    void saveProfileMarksProfileCompletedWhenRequested() {
+        when(profileMapper.selectOne(any())).thenReturn(null);
+        when(profileMapper.insert(any(ProfileEntity.class))).thenAnswer(invocation -> {
+            ProfileEntity profile = invocation.getArgument(0);
+            profile.setId(10L);
+            return 1;
+        });
+
+        ProfileResponse response = profileService.saveProfile(
+            7L,
+            new ProfileRequest(
+                "FEMALE",
+                20,
+                new BigDecimal("170"),
+                new BigDecimal("65"),
+                DietGoal.BALANCED,
+                List.of("清淡"),
+                List.of(),
+                List.of(),
+                30,
+                true
+            )
+        );
+
+        ArgumentCaptor<ProfileEntity> captor = ArgumentCaptor.forClass(ProfileEntity.class);
+        verify(profileMapper).insert(captor.capture());
+        ProfileEntity saved = captor.getValue();
+
+        assertEquals(true, saved.getProfileCompleted());
+        assertEquals(true, response.profileCompleted());
     }
 }

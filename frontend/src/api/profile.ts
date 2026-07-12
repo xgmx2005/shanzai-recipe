@@ -19,6 +19,7 @@ function toUiProfile(profile: ApiProfile): Profile {
   return {
     ...profile,
     gender: toUiGender(profile.gender),
+    profileCompleted: Boolean(profile.profileCompleted),
   }
 }
 

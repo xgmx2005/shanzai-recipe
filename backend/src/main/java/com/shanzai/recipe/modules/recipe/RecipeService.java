@@ -168,7 +168,7 @@ public class RecipeService {
             splitList(recipe.getTasteTags()),
             splitList(recipe.getHealthTags()),
             splitList(recipe.getTargetGoals()),
-            parseSteps(recipe.getSteps()),
+            enrichSteps(parseSteps(recipe.getSteps())),
             rows.stream()
                 .map(row -> toIngredientResponse(row, ingredients.get(row.getIngredientId())))
                 .toList(),
@@ -319,6 +319,28 @@ public class RecipeService {
         } catch (JsonProcessingException exception) {
             return splitList(steps);
         }
+    }
+
+    private List<String> enrichSteps(List<String> steps) {
+        if (steps.isEmpty()) {
+            return steps;
+        }
+        return java.util.stream.IntStream.range(0, steps.size())
+            .mapToObj(index -> enrichStep(steps.get(index), index))
+            .toList();
+    }
+
+    private String enrichStep(String step, int index) {
+        if (step.length() >= 36) {
+            return step;
+        }
+        return step + " " + switch (Math.min(index, 4)) {
+            case 0 -> "先擦干表面水分，切配尽量保持大小一致；如果包含肉类、鱼虾或豆制品，可用少量盐、黑胡椒或生抽抓匀，静置5-10分钟更入味。";
+            case 1 -> "保持小火到中火，先处理耐煮或需要煎香的食材，锅内只放少量油；看到边缘变色、香味出来或蔬菜颜色变亮后，再进入下一步。";
+            case 2 -> "调味从少量开始，边翻拌边观察状态；加入蛋液、豆腐、米饭或面条时动作放轻，让食材均匀裹味但尽量保持完整。";
+            case 3 -> "出锅前确认肉类完全熟透、蔬菜仍有脆感，汤汁或酱汁不要过多；装盘后再补葱花、柠檬汁或黑胡椒提香。";
+            default -> "按顺序完成这一步，保持火候稳定，避免长时间大火导致食材出水或口感变老。";
+        };
     }
 
     private String joinGoals(List<DietGoal> goals) {

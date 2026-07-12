@@ -280,8 +280,7 @@ public class RecommendationConversationService {
 
         RecommendationConversationContext context = readContext(conversation.getContextJson());
         RecommendationRequest request = toRecommendationRequest(context);
-        if (request.availableIngredients().isEmpty()
-                || parseDietGoal(context.dietGoal()) == null
+        if (parseDietGoal(context.dietGoal()) == null
                 || flow.firstMissingStage(context) != ConversationStage.CONFIRM
                 || !context.unknownTerms().isEmpty()
                 || !context.conflicts().isEmpty()) {
@@ -516,7 +515,7 @@ public class RecommendationConversationService {
         }
         return switch (stage) {
             case INTENT -> "先说说你这次想吃什么类型。";
-            case INGREDIENTS -> "收到，请继续告诉我现有食材。";
+            case INGREDIENTS -> "收到。如果有现成食材可以告诉我，没有也可以继续补充忌口、时间和人数。";
             case RESTRICTIONS -> "再告诉我忌口或过敏信息。";
             case CONTEXT -> "还差烹饪时间和人数。";
             case CONFIRM -> "信息差不多了，确认后我再继续。";

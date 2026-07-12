@@ -18,6 +18,7 @@ public record ProfileResponse(
     List<String> allergyIngredients,
     Integer cookingTimePreference,
     Integer dailyCalorieTarget,
+    Boolean profileCompleted,
     LocalDateTime updatedAt
 ) {
 }
