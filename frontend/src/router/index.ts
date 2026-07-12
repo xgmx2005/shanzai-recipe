@@ -28,6 +28,11 @@ const router = createRouter({
         { path: '', redirect: '/user/home' },
         { path: 'home', name: 'user-home', component: () => import('@/views/user/HomeView.vue') },
         {
+          path: 'onboarding',
+          name: 'profile-onboarding',
+          component: () => import('@/views/user/ProfileOnboardingView.vue'),
+        },
+        {
           path: 'profile',
           name: 'user-profile',
           component: () => import('@/views/user/ProfileView.vue'),

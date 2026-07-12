@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, CalendarClock, ChefHat, Clock, Flame, ListChecks, Salad, Sparkles, UsersRound } from '@lucide/vue'
+import { ArrowRight, Clock, Flame, ListChecks, Sparkles, UsersRound } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import { createShoppingList } from '@/api/shopping'
 import IngredientIcon from '@/components/IngredientIcon.vue'
@@ -113,39 +113,20 @@ onMounted(load)
         <p class="sz-chip"><Clock :size="15" /> 推荐历史</p>
         <h1>回看每一次推荐，快速复用成下一餐</h1>
       </div>
-      <p>历史记录保留输入食材、目标和命中菜谱，可直接生成购物清单。</p>
-    </section>
-
-    <section class="stats-strip">
-      <article>
-        <span class="stat-icon"><CalendarClock :size="19" /></span>
-        <small>历史记录</small>
-        <strong>{{ histories.length }}</strong>
-        <em>次推荐</em>
-      </article>
-      <article>
-        <span class="stat-icon is-warm"><ChefHat :size="19" /></span>
-        <small>累计菜谱</small>
-        <strong>{{ totalRecipeCount }}</strong>
-        <em>道命中</em>
-      </article>
-      <article>
-        <span class="stat-icon is-red"><Sparkles :size="19" /></span>
-        <small>最近一次</small>
-        <strong>{{ latestTimeLabel }}</strong>
-        <em>已保存</em>
-      </article>
+      <p>
+        {{ histories.length }} 次推荐 · {{ totalRecipeCount }} 道命中菜谱 · 最近 {{ latestTimeLabel }}
+      </p>
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
     <n-skeleton v-if="loading" text :repeat="4" />
 
     <section class="history-grid">
-      <aside class="history-list sz-panel">
+      <aside class="history-record-book sz-panel">
         <div class="panel-heading">
           <div>
             <p class="sz-chip">记录列表</p>
-            <h2>最近生成</h2>
+            <h2>推荐记录册</h2>
           </div>
           <span>{{ histories.length }} 条</span>
         </div>
@@ -153,74 +134,57 @@ onMounted(load)
           v-for="item in histories"
           :key="item.id"
           type="button"
+          class="record-card"
           :class="{ active: detail?.id === item.id }"
           @click="openDetail(item.id)"
         >
-          <span>#{{ item.id }} {{ goalLabels[item.dietGoal] }}</span>
+          <span class="record-number">#{{ item.id }}</span>
+          <span class="record-top">
+            <em>{{ goalLabels[item.dietGoal] }}</em>
+            <small>{{ formatDate(item.createdAt) }}</small>
+          </span>
           <strong>{{ item.inputIngredients.join('、') || '未填写食材' }}</strong>
-          <small>{{ formatDate(item.createdAt) }} · {{ item.cookingTime }} 分钟 · {{ item.servings }} 人</small>
+          <span class="record-meta">
+            <small><Clock :size="14" /> {{ item.cookingTime }} 分钟</small>
+            <small><UsersRound :size="14" /> {{ item.servings }} 人</small>
+            <small>{{ item.resultRecipeIds.length }} 道菜</small>
+          </span>
           <ArrowRight :size="17" />
         </button>
-        <n-empty v-if="!loading && histories.length === 0" description="暂无推荐历史" />
+        <div v-if="!loading && histories.length === 0" class="empty-history">
+          <strong>还没有推荐历史</strong>
+          <p>先完成一次智能推荐，系统会把条件、结果和购物清单入口保存在这里。</p>
+          <button type="button" @click="router.push('/user/recommend')">去智能推荐</button>
+        </div>
       </aside>
 
-      <section class="detail-panel sz-panel">
+      <section class="recommendation-report sz-panel">
         <n-spin :show="detailLoading">
           <template v-if="detail">
-            <div class="detail-content">
-              <div class="detail-head">
+            <div class="report-content">
+              <div class="report-header">
                 <div>
                   <p class="sz-chip is-warm"><Sparkles :size="15" /> 推荐 #{{ detail.id }}</p>
                   <h2>{{ goalLabels[detail.dietGoal] }}</h2>
                   <span>{{ fullDate(detail.createdAt) }}</span>
                 </div>
-                <button class="shopping-button" type="button" :disabled="creating" @click="makeShoppingList">
-                  <ListChecks :size="18" />
-                  {{ creating ? '正在生成' : '生成购物清单' }}
-                </button>
-                <button class="result-button" type="button" @click="openResult(detail.id)">
-                  <ArrowRight :size="18" />
-                  查看本次结果
-                </button>
-              </div>
-
-              <div class="detail-metrics">
-                <article>
-                  <Clock :size="19" />
-                  <span>烹饪时间</span>
-                  <strong>{{ detail.cookingTime }} 分钟</strong>
-                </article>
-                <article>
-                  <UsersRound :size="19" />
-                  <span>用餐人数</span>
-                  <strong>{{ detail.servings }} 人</strong>
-                </article>
-                <article>
-                  <Salad :size="19" />
-                  <span>推荐菜谱</span>
-                  <strong>{{ selectedRecipes.length }} 道</strong>
-                </article>
-              </div>
-
-              <article class="ai-summary">
-                <p class="sz-chip">
-                  <Sparkles :size="15" />
-                  {{ detail.aiGenerated ? 'AI 推荐分析' : '规则推荐分析' }}
-                </p>
-                <strong>{{ detail.aiSummary }}</strong>
-                <div class="ai-summary-grid">
-                  <section>
-                    <span>健康提示</span>
-                    <p>{{ detail.aiHealthTip }}</p>
-                  </section>
-                  <section>
-                    <span>购物清单提示</span>
-                    <p>{{ detail.aiShoppingTip }}</p>
-                  </section>
+                <div class="report-actions">
+                  <button class="result-button" type="button" @click="openResult(detail.id)">
+                    <ArrowRight :size="18" />
+                    查看本次结果
+                  </button>
+                  <button class="shopping-button" type="button" :disabled="creating" @click="makeShoppingList">
+                    <ListChecks :size="18" />
+                    {{ creating ? '正在生成' : '生成购物清单' }}
+                  </button>
                 </div>
-              </article>
+              </div>
 
-              <div class="input-row">
+              <section class="report-section report-condition-grid">
+                <article>
+                  <span>本次条件</span>
+                  <strong>{{ detail.cookingTime }} 分钟 · {{ detail.servings }} 人 · {{ selectedRecipes.length }} 道菜</strong>
+                </article>
                 <article>
                   <span>已有食材</span>
                   <div class="ingredient-tags">
@@ -241,24 +205,48 @@ onMounted(load)
                     <strong v-if="detail.excludedIngredients.length === 0">无</strong>
                   </div>
                 </article>
-              </div>
+              </section>
 
-              <div class="recipe-list">
-                <article v-for="recipe in detail.recipes" :key="recipe.id">
-                  <img
-                    :src="resolveRecipeImage(recipe.imageUrl)"
-                    :alt="recipe.name"
-                    @error="replaceImageWithFallback($event)"
-                  />
-                  <div class="recipe-copy">
-                    <strong>{{ recipe.name }}</strong>
-                    <span><Flame :size="15" /> {{ recipe.calories }} kcal · {{ recipe.protein }}g 蛋白质</span>
-                  </div>
-                  <button type="button" @click="router.push(`/user/recipes/${recipe.id}`)">
-                    查看详情
-                  </button>
-                </article>
-              </div>
+              <article class="report-section ai-summary">
+                <p class="sz-chip">
+                  <Sparkles :size="15" />
+                  {{ detail.aiGenerated ? 'AI 推荐分析' : '规则推荐分析' }}
+                </p>
+                <strong>{{ detail.aiSummary }}</strong>
+                <div class="ai-summary-grid">
+                  <section>
+                    <span>健康提示</span>
+                    <p>{{ detail.aiHealthTip }}</p>
+                  </section>
+                  <section>
+                    <span>购物清单提示</span>
+                    <p>{{ detail.aiShoppingTip }}</p>
+                  </section>
+                </div>
+              </article>
+
+              <section class="report-section">
+                <div class="report-section-head">
+                  <span>推荐菜谱</span>
+                  <strong>{{ selectedRecipes.length }} 道</strong>
+                </div>
+                <div class="report-recipe-grid">
+                  <article v-for="recipe in detail.recipes" :key="recipe.id">
+                    <img
+                      :src="resolveRecipeImage(recipe.imageUrl)"
+                      :alt="recipe.name"
+                      @error="replaceImageWithFallback($event)"
+                    />
+                    <div class="recipe-copy">
+                      <strong>{{ recipe.name }}</strong>
+                      <span><Flame :size="15" /> {{ recipe.calories }} kcal · {{ recipe.protein }}g 蛋白质</span>
+                    </div>
+                    <button type="button" @click="router.push(`/user/recipes/${recipe.id}`)">
+                      查看详情
+                    </button>
+                  </article>
+                </div>
+              </section>
             </div>
           </template>
           <n-empty v-else-if="!loading" description="选择一条推荐历史查看详情" />
@@ -270,14 +258,15 @@ onMounted(load)
 
 <style scoped>
 .history-view,
-.history-list,
-.detail-panel,
-.recipe-list {
+.history-record-book,
+.recommendation-report,
+.report-recipe-grid,
+.report-condition-grid {
   display: grid;
 }
 
 .history-view {
-  gap: 22px;
+  gap: 20px;
 }
 
 h1,
@@ -301,7 +290,7 @@ p {
 
 h1 {
   color: var(--sz-evergreen);
-  font-size: 32px;
+  font-size: 34px;
   line-height: 1.2;
   letter-spacing: 0;
 }
@@ -313,82 +302,23 @@ h1 {
   text-align: right;
 }
 
-.stats-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.stats-strip article {
-  display: grid;
-  grid-template-columns: 48px 1fr auto;
-  column-gap: 14px;
-  align-items: center;
-  min-height: 92px;
-  padding: 16px;
-  border: 1px solid var(--sz-line);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 250, 241, 0.96), rgba(250, 244, 234, 0.9));
-  box-shadow: var(--sz-shadow-soft);
-}
-
-.stat-icon {
-  grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  color: var(--sz-green-dark);
-  background: var(--sz-mint);
-}
-
-.stat-icon.is-warm {
-  color: #b16b18;
-  background: var(--sz-grain-soft);
-}
-
-.stat-icon.is-red {
-  color: var(--sz-tomato);
-  background: var(--sz-tomato-soft);
-}
-
-.stats-strip small {
-  color: var(--sz-muted);
-  font-weight: 800;
-}
-
-.stats-strip strong {
-  color: var(--sz-evergreen);
-  font-size: 24px;
-}
-
-.stats-strip em {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  padding: 5px 10px;
-  border-radius: var(--sz-radius-pill);
-  color: var(--sz-deep-green);
-  background: var(--sz-mint);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 900;
-}
-
 .history-grid {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: minmax(310px, 0.42fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
 
-.history-list,
-.detail-panel {
-  padding: 22px;
+.history-record-book,
+.recommendation-report {
+  padding: 20px;
 }
 
-.history-list {
+.history-record-book {
   gap: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 247, 0.96), rgba(250, 244, 234, 0.88)),
+    radial-gradient(circle at 8% 12%, rgba(220, 239, 228, 0.82), transparent 34%);
 }
 
 .panel-heading {
@@ -421,13 +351,13 @@ h1 {
   font-weight: 900;
 }
 
-.history-list button {
+.record-card {
   position: relative;
   display: grid;
-  gap: 7px;
-  padding: 14px 42px 14px 14px;
+  gap: 8px;
+  padding: 15px 42px 15px 16px;
   border: 1px solid var(--sz-line);
-  border-radius: 16px;
+  border-radius: 14px;
   color: var(--sz-text);
   background: rgba(255, 253, 247, 0.86);
   text-align: left;
@@ -438,17 +368,20 @@ h1 {
     transform 0.18s ease;
 }
 
-.history-list button.active {
-  border-color: rgba(72, 168, 106, 0.5);
-  background: linear-gradient(135deg, var(--sz-mint), #fffdf7);
+.record-card.active {
+  border-color: rgba(35, 107, 75, 0.48);
+  background:
+    linear-gradient(90deg, rgba(35, 107, 75, 0.08), transparent 46%),
+    linear-gradient(135deg, var(--sz-mint), #fffdf7);
+  box-shadow: 0 14px 28px rgba(35, 107, 75, 0.12);
 }
 
-.history-list button:hover {
+.record-card:hover {
   border-color: var(--sz-line-strong);
   transform: translateY(-1px);
 }
 
-.history-list button > svg {
+.record-card > svg {
   position: absolute;
   right: 14px;
   top: 50%;
@@ -456,43 +389,126 @@ h1 {
   transform: translateY(-50%);
 }
 
-.history-list span,
-.history-list small,
-.recipe-list span {
+.record-number {
+  justify-self: start;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: var(--sz-radius-pill);
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.record-top,
+.record-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-top {
+  justify-content: space-between;
+}
+
+.record-top em {
+  color: var(--sz-deep-green);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.record-meta small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: var(--sz-radius-pill);
+  background: rgba(245, 252, 246, 0.72);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.history-record-book small,
+.report-recipe-grid span {
   color: var(--sz-muted);
 }
 
-.detail-panel {
-  gap: 18px;
-  background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
+.empty-history {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px dashed rgba(35, 107, 75, 0.24);
+  border-radius: 16px;
+  background: rgba(245, 252, 246, 0.72);
 }
 
-.detail-content {
+.empty-history strong {
+  color: var(--sz-evergreen);
+  font-size: 18px;
+}
+
+.empty-history p {
+  color: var(--sz-muted);
+  line-height: 1.7;
+}
+
+.empty-history button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--sz-radius-pill);
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.recommendation-report {
+  gap: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94)),
+    radial-gradient(circle at 92% 0%, rgba(220, 239, 228, 0.76), transparent 30%);
+}
+
+.report-content {
   display: grid;
   gap: 18px;
 }
 
-.detail-head {
+.report-header {
   display: flex;
-  align-items: center;
+  align-items: start;
   justify-content: space-between;
   gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(223, 210, 191, 0.72);
 }
 
-.detail-head div {
+.report-header > div:first-child {
   display: grid;
   justify-items: start;
   gap: 10px;
 }
 
-.detail-head h2 {
+.report-header h2 {
   color: var(--sz-evergreen);
-  font-size: 26px;
+  font-size: 30px;
 }
 
-.detail-head span {
+.report-header span {
   color: var(--sz-muted);
   font-weight: 800;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .shopping-button,
@@ -524,35 +540,60 @@ h1 {
   opacity: 0.72;
 }
 
-.detail-metrics {
+.report-condition-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.detail-metrics article {
+.report-condition-grid article {
   display: grid;
-  gap: 8px;
-  min-height: 92px;
-  padding: 14px;
+  align-content: start;
+  gap: 9px;
+  min-height: 98px;
+  padding: 13px;
   border: 1px solid rgba(223, 210, 191, 0.86);
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(255, 253, 247, 0.86);
 }
 
-.detail-metrics svg {
-  color: var(--sz-green-dark);
-}
-
-.detail-metrics span {
+.report-condition-grid article > span {
   color: var(--sz-muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
-.detail-metrics strong {
+.report-condition-grid strong {
   color: var(--sz-evergreen);
-  font-size: 20px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.report-section {
+  display: grid;
+  gap: 12px;
+}
+
+.report-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.report-section-head span {
+  color: var(--sz-muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.report-section-head strong {
+  min-height: 30px;
+  padding: 5px 11px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 13px;
 }
 
 .ai-summary {
@@ -597,37 +638,6 @@ h1 {
   line-height: 1.7;
 }
 
-.input-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.input-row article,
-.recipe-list article {
-  border: 1px solid var(--sz-line);
-  border-radius: 16px;
-  background: rgba(255, 253, 247, 0.86);
-}
-
-.input-row article {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-}
-
-.input-row span {
-  color: var(--sz-muted);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.input-row strong {
-  color: var(--sz-evergreen);
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
 .ingredient-tags {
   display: flex;
   flex-wrap: wrap;
@@ -647,22 +657,25 @@ h1 {
   font-weight: 800;
 }
 
-.recipe-list {
+.report-recipe-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.recipe-list article {
+.report-recipe-grid article {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-columns: 92px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 12px;
+  border: 1px solid var(--sz-line);
+  border-radius: 16px;
+  background: rgba(255, 253, 247, 0.86);
 }
 
-.recipe-list img {
-  width: 82px;
-  height: 68px;
+.report-recipe-grid img {
+  width: 92px;
+  height: 74px;
   border-radius: 12px;
   object-fit: cover;
 }
@@ -687,9 +700,9 @@ h1 {
   font-size: 13px;
 }
 
-.recipe-list button {
-  grid-column: 1 / -1;
+.report-recipe-grid button {
   min-height: 34px;
+  padding: 0 12px;
   border: 1px solid rgba(35, 107, 75, 0.2);
   border-radius: 10px;
   color: var(--sz-deep-green);
@@ -700,11 +713,9 @@ h1 {
 
 @media (max-width: 900px) {
   .history-grid,
-  .stats-strip,
-  .detail-metrics,
+  .report-condition-grid,
   .ai-summary-grid,
-  .input-row,
-  .recipe-list {
+  .report-recipe-grid {
     grid-template-columns: 1fr;
   }
 
@@ -719,19 +730,25 @@ h1 {
 }
 
 @media (max-width: 640px) {
-  .detail-head,
+  .report-header,
   .panel-heading {
     display: grid;
   }
 
-  .stats-strip article {
-    grid-template-columns: 44px 1fr;
+  .report-actions {
+    justify-content: stretch;
   }
 
-  .stats-strip em {
-    grid-column: 2;
-    grid-row: auto;
-    justify-self: start;
+  .report-actions button {
+    flex: 1 1 auto;
+  }
+
+  .report-recipe-grid article {
+    grid-template-columns: 82px minmax(0, 1fr);
+  }
+
+  .report-recipe-grid button {
+    grid-column: 1 / -1;
   }
 }
 </style>

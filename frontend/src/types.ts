@@ -29,6 +29,7 @@ export interface Profile {
   avoidIngredients: string[]
   allergyIngredients: string[]
   cookingTimePreference: number
+  profileCompleted: boolean
   bmi?: number
   dailyCalorieTarget?: number
   updatedAt?: string
@@ -45,7 +46,9 @@ export type ProfileRequest = Pick<
   | 'avoidIngredients'
   | 'allergyIngredients'
   | 'cookingTimePreference'
->
+> & {
+  profileCompleted?: boolean
+}
 
 export interface ProfileSummary {
   hasProfile: boolean
@@ -54,6 +57,7 @@ export interface ProfileSummary {
   bmiStatus: string
   dailyCalorieTarget: number | null
   cookingTimePreference: number | null
+  profileCompleted: boolean
 }
 
 export interface ApiResponse<T> {

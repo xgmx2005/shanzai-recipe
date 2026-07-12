@@ -234,6 +234,13 @@ onMounted(async () => {
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+    <section v-if="profileSummary && !profileSummary.profileCompleted" class="profile-reminder">
+      <div>
+        <strong>完善健康档案后，推荐会更准确</strong>
+        <span>当前会使用默认档案推荐；补全目标、忌口和口味后，AI 的排序和解释会更贴近你。</span>
+      </div>
+      <button type="button" @click="router.push('/user/onboarding')">去完善</button>
+    </section>
     <n-skeleton v-if="loading" text :repeat="3" />
 
     <section class="workbench-flow">
@@ -425,6 +432,45 @@ h1 {
   color: var(--sz-evergreen);
   font-size: 28px;
   line-height: 1.15;
+}
+
+.profile-reminder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 18px;
+  border: 1px solid rgba(72, 168, 106, 0.24);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(220, 239, 228, 0.9), rgba(255, 253, 247, 0.94));
+  box-shadow: var(--sz-shadow-soft);
+}
+
+.profile-reminder div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-reminder strong {
+  color: var(--sz-evergreen);
+  font-size: 16px;
+}
+
+.profile-reminder span {
+  color: var(--sz-muted);
+  line-height: 1.6;
+}
+
+.profile-reminder button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 11px;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .section-head {
@@ -666,6 +712,10 @@ h1 {
   .daily-status-panel,
   .recipe-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-reminder {
+    display: grid;
   }
 
   .workbench-hero {

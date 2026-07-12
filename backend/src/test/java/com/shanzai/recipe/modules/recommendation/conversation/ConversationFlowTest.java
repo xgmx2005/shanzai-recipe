@@ -109,7 +109,7 @@ class ConversationFlowTest {
                 )
         );
 
-        assertEquals(ConversationStage.INGREDIENTS, transition.stage());
+        assertEquals(ConversationStage.RESTRICTIONS, transition.stage());
         assertEquals(0, transition.invalidAnswerCount());
         assertEquals(GuidanceMode.NORMAL, transition.guidanceMode());
     }
@@ -127,7 +127,7 @@ class ConversationFlowTest {
                 )
         );
 
-        assertEquals(ConversationStage.INGREDIENTS, transition.stage());
+        assertEquals(ConversationStage.RESTRICTIONS, transition.stage());
     }
 
     @Test
@@ -363,6 +363,17 @@ class ConversationFlowTest {
         RecommendationConversationContext context = new RecommendationConversationContext(
                 "清淡饮食", "FAT_LOSS",
                 List.of(new AvailableIngredientInput("鸡胸肉", new BigDecimal("300"), "g", true)),
+                List.of(), List.of(), 30, 1, List.of(), List.of(), true
+        );
+
+        assertEquals(ConversationStage.CONFIRM, flow.firstMissingStage(context));
+    }
+
+    @Test
+    void availableIngredientsAreOptionalForConfirmation() {
+        RecommendationConversationContext context = new RecommendationConversationContext(
+                "清淡饮食", "FAT_LOSS",
+                List.of(),
                 List.of(), List.of(), 30, 1, List.of(), List.of(), true
         );
 

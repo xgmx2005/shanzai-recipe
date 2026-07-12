@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ShieldCheck } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import AuthShell from '@/components/AuthShell.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -11,8 +10,8 @@ const message = useMessage()
 const auth = useAuthStore()
 
 const form = reactive({
-  username: 'user1',
-  password: '123456',
+  username: '',
+  password: '',
 })
 const loading = ref(false)
 const error = ref('')
@@ -36,11 +35,6 @@ async function submit() {
   } finally {
     loading.value = false
   }
-}
-
-function fillDemo(username: string) {
-  form.username = username
-  form.password = '123456'
 }
 </script>
 
@@ -70,12 +64,6 @@ function fillDemo(username: string) {
       <n-button block size="large" type="primary" :loading="loading" @click="submit">登录</n-button>
     </n-form>
 
-    <div class="demo-box">
-      <span><ShieldCheck /> 演示账号</span>
-      <button type="button" @click="fillDemo('user1')">user1 / 123456</button>
-      <button type="button" @click="fillDemo('maintainer')">maintainer / 123456</button>
-    </div>
-
     <p class="switch-link">
       还没有账号？
       <router-link to="/register">创建膳哉账号</router-link>
@@ -87,51 +75,6 @@ function fillDemo(username: string) {
 .auth-form {
   display: grid;
   gap: 2px;
-}
-
-.demo-box {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 18px;
-  border-top: 1px solid var(--sz-line);
-}
-
-.demo-box span,
-.demo-box button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 13px;
-  border-radius: var(--sz-radius-pill);
-  font-size: 13px;
-}
-
-.demo-box span {
-  color: var(--sz-deep-green);
-  background: var(--sz-mint);
-  font-weight: 800;
-}
-
-.demo-box span svg {
-  width: 15px;
-  height: 15px;
-}
-
-.demo-box button {
-  border: 1px solid var(--sz-line);
-  color: var(--sz-text);
-  background: var(--sz-surface);
-  cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    color 0.18s ease;
-}
-
-.demo-box button:hover {
-  border-color: var(--sz-green);
-  color: var(--sz-deep-green);
 }
 
 .switch-link {

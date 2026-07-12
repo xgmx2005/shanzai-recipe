@@ -20,6 +20,7 @@ const defaultProfile: Profile = {
   avoidIngredients: [],
   allergyIngredients: [],
   cookingTimePreference: 30,
+  profileCompleted: false,
 }
 
 const DEFAULT_AVATAR_THEME = 'leaf'

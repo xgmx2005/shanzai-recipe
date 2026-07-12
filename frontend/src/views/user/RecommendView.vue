@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Bot, CheckCircle2, MessageCircleMore, RotateCcw, Sparkles } from '@lucide/vue'
+import { ArrowRight, Bot, Info, MessageCircleMore, RotateCcw, Sparkles } from '@lucide/vue'
 import { useMessage } from 'naive-ui'
 import {
   confirmConversation,
@@ -15,6 +15,7 @@ import RecommendationComposer from '@/components/recommendation/RecommendationCo
 import RecommendationConditionSummary from '@/components/recommendation/RecommendationConditionSummary.vue'
 import RecommendationMessageList from '@/components/recommendation/RecommendationMessageList.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRecommendationTransitionStore } from '@/stores/recommendationTransition'
 import type { ConversationContextPatchRequest, ConversationMessage, ConversationResponse } from '@/types'
 import { recommendationResultRoute } from '@/utils/recommendationConversation'
 
@@ -22,6 +23,7 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const auth = useAuthStore()
+const routeTransition = useRecommendationTransitionStore()
 
 const loading = ref(true)
 const sending = ref(false)
@@ -34,13 +36,6 @@ const showResumeChoice = ref(false)
 const pendingUserMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantMessage = ref<ConversationMessage | null>(null)
 const streamingAssistantContent = ref('')
-const generationStepItems = [
-  { label: '理解饮食目标', detail: '读取健康档案和本次口味偏好' },
-  { label: '匹配知识库菜谱', detail: '筛选可用食材与烹饪时间' },
-  { label: '生成推荐理由', detail: '整理营养亮点和执行建议' },
-]
-const generationActiveStep = ref(0)
-const generationComplete = ref(false)
 const generationRunId = ref(0)
 const agentThinking = computed(() => sending.value && !streamingAssistantMessage.value)
 const userAvatarText = computed(() => (auth.user?.nickname ?? auth.user?.username ?? '我').slice(0, 1))
@@ -55,11 +50,12 @@ const canGenerateRecommendation = computed(() => {
 const generationConditionSummary = computed(() => {
   const context = conversation.value?.context
   if (!context) return '正在读取本次条件'
-  const ingredients = context.availableIngredients.map((item) => item.name).slice(0, 3).join('、') || '待确认食材'
+  const ingredients = context.availableIngredients.map((item) => item.name).slice(0, 3).join('、') || '未指定已有食材'
   const time = context.cookingTime ? `${context.cookingTime} 分钟内` : '时间待确认'
   const servings = context.servings ? `${context.servings} 人份` : '人数待确认'
   return `${ingredients} · ${time} · ${servings}`
 })
+const profileIncomplete = computed(() => !auth.profile.profileCompleted)
 
 const displayMessages = computed(() => {
   const messages = [...(conversation.value?.messages ?? [])]
@@ -86,7 +82,6 @@ const contextReadyCount = computed(() => {
   if (!context) return 0
   return [
     context.dietGoal,
-    context.availableIngredients.length > 0,
     context.cookingTime,
     context.servings,
     context.restrictionsConfirmed,
@@ -170,15 +165,6 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
-async function advanceGenerationSteps(runId: number) {
-  generationComplete.value = false
-  for (let index = 0; index < generationStepItems.length; index += 1) {
-    if (runId !== generationRunId.value) return
-    generationActiveStep.value = index
-    await sleep(index === 0 ? 220 : 380)
-  }
-}
-
 async function streamAssistantContent(content: string) {
   const chars = Array.from(content)
   const chunkSize = chars.length > 220 ? 4 : chars.length > 120 ? 3 : 2
@@ -239,25 +225,21 @@ async function confirm() {
   error.value = ''
   generationRunId.value += 1
   const runId = generationRunId.value
-  generationActiveStep.value = 0
-  generationComplete.value = false
-  const generationAnimation = advanceGenerationSteps(runId)
+  routeTransition.start(generationConditionSummary.value)
   try {
     const result = await confirmConversation(conversation.value.id)
-    await generationAnimation
     if (runId !== generationRunId.value) return
-    generationComplete.value = true
     message.success('推荐已生成')
-    await sleep(650)
+    routeTransition.markServing()
+    await sleep(420)
     await router.push(recommendationResultRoute(result.historyId))
   } catch (err) {
     generationRunId.value += 1
+    routeTransition.finish()
     error.value = err instanceof Error ? err.message : '生成推荐失败'
     message.error(error.value)
   } finally {
     confirming.value = false
-    generationComplete.value = false
-    generationActiveStep.value = 0
   }
 }
 
@@ -276,7 +258,14 @@ async function saveConditions(payload: ConversationContextPatchRequest) {
   }
 }
 
-onMounted(initialize)
+onMounted(async () => {
+  try {
+    await auth.loadProfile()
+  } catch {
+    message.warning('健康档案暂时不可用，将先使用默认档案')
+  }
+  await initialize()
+})
 </script>
 
 <template>
@@ -286,10 +275,23 @@ onMounted(initialize)
         <p class="sz-chip"><Sparkles :size="15" /> 智能推荐</p>
         <h1>像聊天一样说清楚这一餐</h1>
       </div>
-      <p>膳哉会先理解食材、口味、忌口和人数，再结合知识库生成可执行的推荐结果。</p>
+      <p>膳哉会先理解口味、忌口、时间和人数；已有食材可填可不填，再结合知识库生成可执行推荐。</p>
     </section>
 
     <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+    <section v-if="profileIncomplete" class="profile-reminder-alert" aria-label="健康档案提示">
+      <span class="profile-reminder-icon" aria-hidden="true">
+        <Info :size="17" />
+      </span>
+      <div>
+        <strong>健康档案未完善</strong>
+        <p>当前使用默认档案，完善后会结合热量、忌口和口味偏好。</p>
+      </div>
+      <router-link class="profile-reminder-action" to="/user/onboarding">
+        去完善
+        <ArrowRight :size="15" />
+      </router-link>
+    </section>
 
     <section v-if="showResumeChoice && resumableConversation" class="resume-panel sz-panel">
       <div>
@@ -309,38 +311,12 @@ onMounted(initialize)
     </section>
 
     <section v-else class="conversation-shell sz-panel">
-      <div v-if="confirming" class="generation-overlay" aria-live="polite">
-        <div class="generation-card">
-          <div class="generation-core">
-            <span class="generation-orb"><Sparkles :size="24" /></span>
-            <span class="generation-ring" />
-          </div>
-          <p class="generation-kicker">膳哉 Agent</p>
-          <strong>{{ generationComplete ? '已生成，正在打开推荐结果' : '正在为你规划这一餐' }}</strong>
-          <p>{{ generationConditionSummary }}</p>
-          <div class="generation-stage">
-            <span
-              v-for="(item, index) in generationStepItems"
-              :key="item.label"
-              :class="{
-                active: index === generationActiveStep && !generationComplete,
-                complete: index < generationActiveStep || generationComplete,
-              }"
-            >
-              <CheckCircle2 :size="15" />
-              <em>{{ item.label }}</em>
-              <small>{{ item.detail }}</small>
-            </span>
-          </div>
-        </div>
-      </div>
-
       <div class="conversation-status">
         <div>
           <p class="sz-chip"><MessageCircleMore :size="15" /> 对话输入</p>
           <h2>{{ conversation ? '告诉我你今天想吃什么' : '正在准备推荐助手' }}</h2>
         </div>
-        <span>{{ contextReadyCount }}/5 条件已明确</span>
+        <span>{{ contextReadyCount }}/4 条件已明确</span>
       </div>
 
       <n-skeleton v-if="loading && !conversation" text :repeat="5" />
@@ -435,6 +411,65 @@ p {
   text-align: right;
 }
 
+.profile-reminder-alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 1px solid rgba(35, 107, 75, 0.14);
+  border-radius: 18px;
+  color: var(--sz-deep-green);
+  background:
+    linear-gradient(135deg, rgba(220, 239, 228, 0.74), rgba(255, 250, 241, 0.92)),
+    var(--sz-mint);
+  box-shadow: 0 12px 26px rgba(35, 107, 75, 0.08);
+}
+
+.profile-reminder-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--sz-green-dark);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(35, 107, 75, 0.12);
+}
+
+.profile-reminder-alert > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.profile-reminder-alert strong {
+  color: var(--sz-evergreen);
+  font-size: 14px;
+}
+
+.profile-reminder-alert p {
+  color: var(--sz-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.profile-reminder-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(35, 107, 75, 0.15);
+}
+
 .conversation-shell,
 .resume-panel {
   max-width: 880px;
@@ -449,163 +484,6 @@ p {
   max-width: 1080px;
   padding: 22px;
   background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(251, 247, 239, 0.94));
-}
-
-.generation-overlay {
-  position: absolute;
-  z-index: 8;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  border-radius: inherit;
-  background: rgba(255, 250, 241, 0.78);
-  backdrop-filter: blur(4px);
-  animation: generation-fade-in 0.18s ease-out both;
-}
-
-.generation-card {
-  display: grid;
-  justify-items: center;
-  gap: 11px;
-  width: min(480px, 100%);
-  padding: 30px;
-  border: 1px solid rgba(35, 107, 75, 0.16);
-  border-radius: 22px;
-  color: var(--sz-text);
-  background:
-    linear-gradient(135deg, rgba(255, 253, 247, 0.98), rgba(239, 249, 243, 0.96)),
-    rgba(255, 253, 247, 0.96);
-  box-shadow: 0 22px 45px rgba(31, 77, 58, 0.14);
-  text-align: center;
-  animation: generation-card-rise 0.24s ease-out both;
-}
-
-.generation-core {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 78px;
-  height: 78px;
-}
-
-.generation-orb {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  color: #ffffff;
-  background: var(--sz-green-dark);
-  box-shadow: 0 14px 28px rgba(35, 107, 75, 0.22);
-}
-
-.generation-ring {
-  position: absolute;
-  inset: 2px;
-  border: 1px solid rgba(35, 107, 75, 0.17);
-  border-top-color: var(--sz-green-dark);
-  border-radius: 50%;
-  animation: generation-spin 1.4s linear infinite;
-}
-
-.generation-kicker {
-  min-height: 26px;
-  padding: 3px 10px;
-  border-radius: var(--sz-radius-pill);
-  color: var(--sz-deep-green);
-  background: var(--sz-mint);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.generation-card strong {
-  color: var(--sz-evergreen);
-  font-size: 22px;
-}
-
-.generation-card > p:not(.generation-kicker) {
-  max-width: 330px;
-  color: var(--sz-muted);
-  line-height: 1.7;
-}
-
-.generation-stage {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  margin-top: 3px;
-}
-
-.generation-stage span {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 2px 8px;
-  align-items: center;
-  min-height: 52px;
-  padding: 8px 10px;
-  border: 1px solid rgba(35, 107, 75, 0.08);
-  border-radius: 14px;
-  color: var(--sz-deep-green);
-  background: rgba(255, 253, 247, 0.7);
-  text-align: left;
-  opacity: 0.62;
-  transition: border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
-}
-
-.generation-stage span.active,
-.generation-stage span.complete {
-  border-color: rgba(35, 107, 75, 0.18);
-  background: rgba(220, 239, 228, 0.72);
-  opacity: 1;
-  transform: translateY(-1px);
-}
-
-.generation-stage svg {
-  grid-row: 1 / span 2;
-  color: var(--sz-green-dark);
-}
-
-.generation-stage em {
-  font-style: normal;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.generation-stage small {
-  color: var(--sz-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-@keyframes generation-fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes generation-card-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes generation-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .conversation-workspace {
@@ -794,6 +672,15 @@ p {
   .conversation-shell,
   .resume-panel {
     padding: 18px;
+  }
+
+  .profile-reminder-alert {
+    grid-template-columns: auto 1fr;
+  }
+
+  .profile-reminder-action {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .conversation-workspace {

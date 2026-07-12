@@ -74,9 +74,6 @@ public final class ConversationFlow {
         if (context == null || !hasText(context.intentText(), context.dietGoal())) {
             return ConversationStage.INTENT;
         }
-        if (context.availableIngredients().isEmpty()) {
-            return ConversationStage.INGREDIENTS;
-        }
         if (!context.restrictionsConfirmed()) {
             return ConversationStage.RESTRICTIONS;
         }

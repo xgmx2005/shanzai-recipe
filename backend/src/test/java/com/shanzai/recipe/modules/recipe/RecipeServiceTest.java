@@ -68,7 +68,11 @@ class RecipeServiceTest {
 
         RecipeDetailResponse detail = recipeService.getRecipeDetail(1L);
 
-        assertEquals(List.of("鸡胸肉切块。", "西兰花焯水。"), detail.steps());
+        assertEquals(2, detail.steps().size());
+        assertTrue(detail.steps().get(0).contains("鸡胸肉切块。"));
+        assertTrue(detail.steps().get(0).contains("先擦干表面水分"));
+        assertTrue(detail.steps().get(1).contains("西兰花焯水。"));
+        assertTrue(detail.steps().get(1).contains("保持小火到中火"));
         assertEquals(2, detail.ingredients().size());
         assertEquals("鸡胸肉", detail.ingredients().get(0).name());
         assertEquals("肉蛋奶", detail.ingredients().get(0).category());

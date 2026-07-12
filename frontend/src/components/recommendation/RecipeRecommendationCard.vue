@@ -8,25 +8,34 @@ const props = defineProps<{
   recipe: RecommendedRecipe
   availableIngredients: string[]
   favoritePending?: boolean
-  shoppingPending?: boolean
+  favoriteActive?: boolean
+  menuSelected?: boolean
 }>()
 
 const emit = defineEmits<{
   detail: [id: number]
   favorite: [id: number]
-  shopping: [id: number]
+  'menu-toggle': [id: number]
 }>()
 
 const imageUrl = computed(() => resolveRecipeImage(props.recipe.imageUrl))
 const imagePosition = computed(() => resolveRecipeImagePosition(props.recipe.imageUrl))
-const usedIngredients = computed(() =>
-  props.recipe.matchedIngredients?.length ? props.recipe.matchedIngredients : props.availableIngredients,
-)
+const hasAvailableIngredients = computed(() => props.availableIngredients.length > 0)
+const usedIngredients = computed(() => props.recipe.matchedIngredients ?? [])
 const missingIngredients = computed(() => props.recipe.missingIngredients ?? [])
+const recommendationModeLabel = computed(() =>
+  hasAvailableIngredients.value ? '食材命中' : '按目标推荐',
+)
+const ingredientBlockTitle = computed(() =>
+  hasAvailableIngredients.value ? '已利用食材' : '推荐依据',
+)
+const shoppingBlockTitle = computed(() =>
+  hasAvailableIngredients.value ? '仍需购买' : '建议采购',
+)
 </script>
 
 <template>
-  <article class="recipe-result-card">
+  <article class="recipe-result-card" :class="{ selected: menuSelected }">
     <div class="image-wrap">
       <img
         :src="imageUrl"
@@ -40,49 +49,56 @@ const missingIngredients = computed(() => props.recipe.missingIngredients ?? [])
     <div class="recipe-copy">
       <div class="title-row">
         <div>
+          <span class="mode-badge">{{ recommendationModeLabel }}</span>
           <h3>{{ recipe.name }}</h3>
           <p>{{ recipe.reason }}</p>
         </div>
         <button
           type="button"
           class="icon-button"
-          title="收藏菜谱"
-          aria-label="收藏菜谱"
+          :class="{ active: favoriteActive }"
+          :title="favoriteActive ? '取消收藏' : '收藏菜谱'"
+          :aria-label="favoriteActive ? '取消收藏' : '收藏菜谱'"
+          :aria-pressed="favoriteActive"
           :disabled="favoritePending"
           @click="emit('favorite', recipe.id)"
         >
-          <Heart :size="18" />
+          <Heart :size="18" :fill="favoriteActive ? 'currentColor' : 'none'" />
         </button>
       </div>
 
       <div class="metrics">
         <span><Utensils :size="15" /> {{ recipe.calories }} kcal</span>
         <span>{{ recipe.protein }}g 蛋白质</span>
+        <span>{{ recipe.score }}% 适配度</span>
       </div>
 
       <section class="ingredient-block">
-        <span><SearchCheck :size="15" /> 已利用食材</span>
+        <span><SearchCheck :size="15" /> {{ ingredientBlockTitle }}</span>
         <div>
           <small v-for="name in usedIngredients" :key="`used-${recipe.id}-${name}`">{{ name }}</small>
-          <strong v-if="usedIngredients.length === 0">未命中已有食材</strong>
+          <strong v-if="!hasAvailableIngredients">未指定已有食材，已按饮食目标、时间和忌口筛选</strong>
+          <strong v-else-if="usedIngredients.length === 0">当前菜谱更适合作为采购后制作</strong>
         </div>
       </section>
 
       <section class="ingredient-block">
-        <span><ShoppingBag :size="15" /> 仍需购买</span>
+        <span><ShoppingBag :size="15" /> {{ shoppingBlockTitle }}</span>
         <div>
           <small v-for="name in missingIngredients" :key="`missing-${recipe.id}-${name}`" class="is-warm">
             {{ name }}
           </small>
-          <strong v-if="missingIngredients.length === 0">现有食材基本可做</strong>
+          <strong v-if="missingIngredients.length === 0">
+            {{ hasAvailableIngredients ? '现有食材基本可做' : '暂无缺少食材明细' }}
+          </strong>
         </div>
       </section>
 
       <div class="actions">
         <button type="button" class="ghost-button" @click="emit('detail', recipe.id)">查看详情</button>
-        <button type="button" class="primary-button" :disabled="shoppingPending" @click="emit('shopping', recipe.id)">
+        <button type="button" class="primary-button" :class="{ selected: menuSelected }" @click="emit('menu-toggle', recipe.id)">
           <ListPlus :size="16" />
-          单独生成清单
+          {{ menuSelected ? '已加入' : '加入菜单篮' }}
         </button>
       </div>
     </div>
@@ -98,6 +114,12 @@ const missingIngredients = computed(() => props.recipe.missingIngredients ?? [])
   border-radius: 18px;
   background: rgba(255, 253, 247, 0.9);
   box-shadow: var(--sz-shadow-soft);
+}
+
+.recipe-result-card.selected {
+  border-color: rgba(35, 107, 75, 0.42);
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.96), rgba(220, 239, 228, 0.5));
+  box-shadow: 0 16px 34px rgba(35, 107, 75, 0.14);
 }
 
 .image-wrap {
@@ -146,6 +168,7 @@ p {
 }
 
 h3 {
+  margin-top: 6px;
   color: var(--sz-evergreen);
   font-size: 22px;
   line-height: 1.35;
@@ -168,6 +191,31 @@ p {
   color: #9b3f2d;
   background: var(--sz-tomato-soft);
   cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.icon-button.active {
+  color: #ffffff;
+  background: #d94a34;
+}
+
+.icon-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .metrics {
@@ -251,6 +299,12 @@ p {
   border: 0;
   color: #ffffff;
   background: var(--sz-green-dark);
+}
+
+.primary-button.selected {
+  border: 1px solid rgba(35, 107, 75, 0.18);
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
 }
 
 .ghost-button {

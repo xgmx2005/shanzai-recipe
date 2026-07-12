@@ -159,7 +159,7 @@ function saveConditions() {
       <span class="section-label">已有食材</span>
       <div class="tag-list">
         <span v-for="name in ingredientNames" :key="`in-${name}`">{{ name }}</span>
-        <strong v-if="ingredientNames.length === 0">还没有识别到明确食材</strong>
+        <strong v-if="ingredientNames.length === 0">未指定已有食材，将按目标和时间推荐</strong>
       </div>
     </section>
 

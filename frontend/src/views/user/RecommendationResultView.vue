@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ChefHat, Clock3, ListPlus, RefreshCw, Sparkles, UsersRound } from '@lucide/vue'
+import {
+  ArrowLeft,
+  ChefHat,
+  Clock3,
+  Flame,
+  ListPlus,
+  RefreshCw,
+  ShieldCheck,
+  ShoppingBasket,
+  Sparkles,
+  Target,
+  UsersRound,
+  X,
+} from '@lucide/vue'
 import { useMessage } from 'naive-ui'
-import { favoriteRecipe } from '@/api/favorite'
+import { favoriteRecipe, listFavorites, unfavoriteRecipe } from '@/api/favorite'
 import { getRecommendationHistory } from '@/api/recommendation'
 import { createShoppingList } from '@/api/shopping'
 import RecipeRecommendationCard from '@/components/recommendation/RecipeRecommendationCard.vue'
@@ -16,8 +29,10 @@ const message = useMessage()
 
 const loading = ref(true)
 const creatingList = ref(false)
-const creatingRecipeId = ref<number | null>(null)
 const favoriteRecipeId = ref<number | null>(null)
+const favoriteRecipeIds = ref<number[]>([])
+const selectedRecipeIds = ref<number[]>([])
+const menuBasketExpanded = ref(true)
 const error = ref('')
 const detail = ref<RecommendationHistoryDetail | null>(null)
 
@@ -34,6 +49,27 @@ const historyId = computed(() => {
 const recipes = computed(() => detail.value?.recipes ?? [])
 const resultCalories = computed(() => recipes.value.reduce((sum, recipe) => sum + recipe.calories, 0))
 const resultProtein = computed(() => recipes.value.reduce((sum, recipe) => sum + recipe.protein, 0))
+const selectedMenuRecipes = computed(() =>
+  recipes.value.filter((recipe) => selectedRecipeIds.value.includes(recipe.id)),
+)
+const selectedMenuCalories = computed(() =>
+  selectedMenuRecipes.value.reduce((sum, recipe) => sum + recipe.calories, 0),
+)
+const hasInputIngredients = computed(() => Boolean(detail.value?.inputIngredients.length))
+const conditionModeText = computed(() =>
+  hasInputIngredients.value ? '优先利用已有食材' : '未指定已有食材，按目标和约束推荐',
+)
+const aiExplanationTitle = computed(() =>
+  detail.value?.aiGenerated ? 'AI 推荐讲解' : '知识库推荐讲解',
+)
+
+function isFavorite(recipeId: number) {
+  return favoriteRecipeIds.value.includes(recipeId)
+}
+
+function isRecipeInMenu(recipeId: number) {
+  return selectedRecipeIds.value.includes(recipeId)
+}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString('zh-CN', {
@@ -57,7 +93,14 @@ async function load() {
   }
 
   try {
-    detail.value = await getRecommendationHistory(historyId.value)
+    const [history, favorites] = await Promise.all([
+      getRecommendationHistory(historyId.value),
+      listFavorites(),
+    ])
+    detail.value = history
+    favoriteRecipeIds.value = favorites.map((favorite) => favorite.recipeId)
+    selectedRecipeIds.value = []
+    menuBasketExpanded.value = true
   } catch (err) {
     error.value = err instanceof Error ? err.message : '推荐结果加载失败'
   } finally {
@@ -68,14 +111,13 @@ async function load() {
 async function makeShoppingList(recipeIds = recipes.value.map((recipe) => recipe.id)) {
   if (!detail.value || recipeIds.length === 0 || creatingList.value) return
   creatingList.value = true
-  if (recipeIds.length === 1) creatingRecipeId.value = recipeIds[0]
 
   try {
     const list = await createShoppingList({
       recipeIds,
       availableIngredients: detail.value.inputIngredients,
       title: recipeIds.length === 1
-        ? `推荐 #${detail.value.id} 单菜采购清单`
+        ? `推荐 #${detail.value.id} 所选采购清单`
         : `推荐 #${detail.value.id} 采购清单`,
     })
     message.success('购物清单已生成')
@@ -84,18 +126,50 @@ async function makeShoppingList(recipeIds = recipes.value.map((recipe) => recipe
     message.error(err instanceof Error ? err.message : '生成购物清单失败')
   } finally {
     creatingList.value = false
-    creatingRecipeId.value = null
   }
 }
 
-async function addFavorite(recipeId: number) {
+function toggleMenuRecipe(recipeId: number) {
+  if (isRecipeInMenu(recipeId)) {
+    selectedRecipeIds.value = selectedRecipeIds.value.filter((id) => id !== recipeId)
+  } else {
+    selectedRecipeIds.value = [...selectedRecipeIds.value, recipeId]
+    menuBasketExpanded.value = true
+  }
+
+  if (selectedRecipeIds.value.length === 0) {
+    menuBasketExpanded.value = false
+  }
+}
+
+function clearMenuBasket() {
+  selectedRecipeIds.value = []
+  menuBasketExpanded.value = false
+}
+
+async function makeSelectedShoppingList() {
+  if (selectedRecipeIds.value.length === 0) {
+    message.warning('请先加入想做的菜')
+    return
+  }
+  await makeShoppingList([...selectedRecipeIds.value])
+}
+
+async function toggleFavorite(recipeId: number) {
   if (favoriteRecipeId.value) return
   favoriteRecipeId.value = recipeId
   try {
-    await favoriteRecipe(recipeId)
-    message.success('已收藏菜谱')
+    if (isFavorite(recipeId)) {
+      await unfavoriteRecipe(recipeId)
+      favoriteRecipeIds.value = favoriteRecipeIds.value.filter((id) => id !== recipeId)
+      message.success('已取消收藏')
+    } else {
+      await favoriteRecipe(recipeId)
+      favoriteRecipeIds.value = [...new Set([...favoriteRecipeIds.value, recipeId])]
+      message.success('已收藏菜谱')
+    }
   } catch (err) {
-    message.error(err instanceof Error ? err.message : '收藏失败')
+    message.error(err instanceof Error ? err.message : '收藏操作失败')
   } finally {
     favoriteRecipeId.value = null
   }
@@ -142,9 +216,21 @@ onMounted(load)
     <template v-else-if="detail">
       <section class="result-summary sz-panel result-reveal" style="--reveal-index: 1">
         <div class="summary-main">
-          <p class="sz-chip is-warm"><Sparkles :size="15" /> {{ detail.aiGenerated ? 'AI 推荐讲解' : '规则推荐讲解' }}</p>
-          <h2>{{ goalLabels[detail.dietGoal] }}</h2>
+          <p class="sz-chip is-warm"><Sparkles :size="15" /> {{ aiExplanationTitle }}</p>
+          <h2>{{ goalLabels[detail.dietGoal] }}，为你筛出 {{ recipes.length }} 道可执行菜谱</h2>
           <p>{{ detail.aiSummary }}</p>
+          <div class="explain-points">
+            <article>
+              <Target :size="17" />
+              <strong>推荐逻辑</strong>
+              <span>{{ conditionModeText }}</span>
+            </article>
+            <article>
+              <ShieldCheck :size="17" />
+              <strong>安全过滤</strong>
+              <span>{{ detail.excludedIngredients.length ? `已避开 ${detail.excludedIngredients.join('、')}` : '无明确忌口限制' }}</span>
+            </article>
+          </div>
           <div class="tip-grid">
             <section>
               <strong>健康提示</strong>
@@ -164,6 +250,11 @@ onMounted(load)
             <strong>{{ recipes.length }} 道</strong>
           </article>
           <article>
+            <Flame :size="18" />
+            <span>总热量</span>
+            <strong>{{ resultCalories }} kcal</strong>
+          </article>
+          <article>
             <Clock3 :size="18" />
             <span>烹饪时间</span>
             <strong>{{ detail.cookingTime }} 分钟</strong>
@@ -174,8 +265,8 @@ onMounted(load)
             <strong>{{ detail.servings }} 人</strong>
           </article>
           <article>
-            <span>总热量 / 蛋白质</span>
-            <strong>{{ resultCalories }} kcal / {{ resultProtein }}g</strong>
+            <span>总蛋白质</span>
+            <strong>{{ resultProtein }}g</strong>
           </article>
         </aside>
       </section>
@@ -185,7 +276,7 @@ onMounted(load)
           <span>已有食材</span>
           <div>
             <small v-for="name in detail.inputIngredients" :key="`in-${name}`">{{ name }}</small>
-            <strong v-if="detail.inputIngredients.length === 0">无</strong>
+            <strong v-if="detail.inputIngredients.length === 0">未指定，按目标推荐</strong>
           </div>
         </article>
         <article>
@@ -204,32 +295,75 @@ onMounted(load)
       <section class="toolbar sz-panel result-reveal" style="--reveal-index: 3">
         <div>
           <h2>推荐菜谱</h2>
-          <span>结果来自知识库菜谱，AI 只负责解释和排序，不凭空生成新菜。</span>
+          <span>结果来自知识库菜谱，AI 负责解释和排序；可进入详情查看步骤，或直接生成采购清单。</span>
         </div>
         <button type="button" :disabled="recipes.length === 0 || creatingList" @click="makeShoppingList()">
           <ListPlus :size="17" />
-          {{ creatingList && !creatingRecipeId ? '正在生成' : '生成全部购物清单' }}
+          {{ creatingList ? '正在生成' : '生成全部购物清单' }}
         </button>
       </section>
 
-      <section v-if="recipes.length" class="recipe-list result-reveal" style="--reveal-index: 4">
-        <RecipeRecommendationCard
-          v-for="recipe in recipes"
-          :key="recipe.id"
-          :recipe="recipe"
-          :available-ingredients="detail.inputIngredients"
-          :favorite-pending="favoriteRecipeId === recipe.id"
-          :shopping-pending="creatingRecipeId === recipe.id"
-          @detail="openDetail"
-          @favorite="addFavorite"
-          @shopping="(id) => makeShoppingList([id])"
-        />
+      <section v-if="recipes.length" class="recommendation-result-body result-reveal" style="--reveal-index: 4">
+        <div class="recipe-list">
+          <RecipeRecommendationCard
+            v-for="recipe in recipes"
+            :key="recipe.id"
+            :recipe="recipe"
+            :available-ingredients="detail.inputIngredients"
+            :favorite-pending="favoriteRecipeId === recipe.id"
+            :favorite-active="isFavorite(recipe.id)"
+            :menu-selected="isRecipeInMenu(recipe.id)"
+            @detail="openDetail"
+            @favorite="toggleFavorite"
+            @menu-toggle="toggleMenuRecipe"
+          />
+        </div>
+
+        <aside
+          v-if="selectedMenuRecipes.length"
+          class="menu-basket-rail"
+          :class="{ expanded: menuBasketExpanded }"
+        >
+          <button type="button" class="basket-toggle" @click="menuBasketExpanded = !menuBasketExpanded">
+            <ShoppingBasket :size="18" />
+            <span>菜单篮</span>
+            <strong>{{ selectedMenuRecipes.length }} 道</strong>
+          </button>
+
+          <div v-if="menuBasketExpanded" class="basket-panel">
+            <div class="basket-head">
+              <div>
+                <strong>已选菜单</strong>
+                <span>{{ selectedMenuRecipes.length }} 道 · 约 {{ selectedMenuCalories }} kcal</span>
+              </div>
+              <button type="button" aria-label="清空菜单篮" @click="clearMenuBasket">
+                <X :size="16" />
+              </button>
+            </div>
+            <ul>
+              <li v-for="recipe in selectedMenuRecipes" :key="recipe.id">
+                <span>{{ recipe.name }}</span>
+                <button type="button" @click="toggleMenuRecipe(recipe.id)">移除</button>
+              </li>
+            </ul>
+            <button type="button" class="basket-primary" :disabled="creatingList" @click="makeSelectedShoppingList">
+              <ListPlus :size="16" />
+              {{ creatingList ? '正在生成' : '生成所选购物清单' }}
+            </button>
+          </div>
+        </aside>
+
+        <aside v-else class="menu-basket-rail is-empty">
+          <ShoppingBasket :size="18" />
+          <strong>菜单篮</strong>
+          <span>从左侧菜谱中加入想做的几道菜，再统一生成购物清单。</span>
+        </aside>
       </section>
 
       <section v-else class="empty-safe sz-panel result-reveal" style="--reveal-index: 4">
         <Sparkles :size="26" />
         <strong>暂无符合过敏和忌口约束的安全推荐</strong>
-        <span>可以修改条件、减少排除食材，或补充更多可用食材后重新生成。</span>
+        <span>可以修改条件、减少排除食材，或放宽时间要求后重新生成。</span>
         <div>
           <button type="button" class="ghost-button" @click="router.push('/user/history')">查看历史</button>
           <button type="button" class="primary-button" @click="restartRecommendation">
@@ -349,6 +483,40 @@ p {
 .summary-main > p:not(.sz-chip) {
   color: var(--sz-text);
   line-height: 1.85;
+}
+
+.explain-points {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.explain-points article {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(35, 107, 75, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 253, 247, 0.72);
+}
+
+.explain-points svg {
+  grid-row: 1 / span 2;
+  color: var(--sz-green-dark);
+}
+
+.explain-points strong {
+  color: var(--sz-evergreen);
+  font-size: 13px;
+}
+
+.explain-points span {
+  color: var(--sz-text);
+  line-height: 1.55;
+  font-size: 13px;
 }
 
 .tip-grid {
@@ -495,6 +663,13 @@ p {
   opacity: 0.62;
 }
 
+.recommendation-result-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+
 .recipe-list {
   display: grid;
   gap: 14px;
@@ -531,6 +706,163 @@ p {
   justify-content: center;
 }
 
+.menu-basket-rail {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 10px;
+}
+
+.basket-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 46px;
+  width: 100%;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--sz-radius-pill);
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  box-shadow: 0 16px 34px rgba(35, 107, 75, 0.26);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.basket-toggle strong {
+  padding: 4px 8px;
+  border-radius: var(--sz-radius-pill);
+  color: var(--sz-deep-green);
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.basket-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(35, 107, 75, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 253, 247, 0.96);
+  box-shadow: 0 20px 42px rgba(23, 37, 31, 0.18);
+}
+
+.basket-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.basket-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.basket-head strong {
+  color: var(--sz-evergreen);
+}
+
+.basket-head span {
+  color: var(--sz-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.basket-head button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(35, 107, 75, 0.14);
+  border-radius: 50%;
+  color: var(--sz-deep-green);
+  background: var(--sz-mint);
+  cursor: pointer;
+}
+
+.basket-panel ul {
+  display: grid;
+  gap: 8px;
+  max-height: 190px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.basket-panel li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: var(--sz-mint);
+}
+
+.basket-panel li span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sz-deep-green);
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basket-panel li button {
+  flex: 0 0 auto;
+  border: 0;
+  color: var(--sz-muted);
+  background: transparent;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.basket-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  color: #ffffff;
+  background: var(--sz-green-dark);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.basket-primary:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+.menu-basket-rail.is-empty {
+  min-height: 154px;
+  align-content: center;
+  justify-items: start;
+  padding: 18px;
+  border: 1px dashed rgba(35, 107, 75, 0.2);
+  border-radius: 18px;
+  color: var(--sz-muted);
+  background: rgba(220, 239, 228, 0.36);
+}
+
+.menu-basket-rail.is-empty svg {
+  color: var(--sz-green-dark);
+}
+
+.menu-basket-rail.is-empty strong {
+  color: var(--sz-evergreen);
+  font-size: 18px;
+}
+
+.menu-basket-rail.is-empty span {
+  line-height: 1.7;
+}
+
 @media (max-width: 860px) {
   .result-heading,
   .toolbar {
@@ -543,13 +875,19 @@ p {
   }
 
   .result-summary,
+  .explain-points,
   .tip-grid,
-  .condition-strip {
+  .condition-strip,
+  .recommendation-result-body {
     grid-template-columns: 1fr;
   }
 
   .toolbar button {
     width: 100%;
+  }
+
+  .menu-basket-rail {
+    position: static;
   }
 }
 

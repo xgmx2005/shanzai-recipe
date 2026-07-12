@@ -15,6 +15,11 @@ const composerSource = readFileSync(
   fileURLToPath(new URL('../../components/recommendation/RecommendationComposer.vue', import.meta.url)),
   'utf-8',
 )
+const layoutSource = readFileSync(fileURLToPath(new URL('../../layouts/UserLayout.vue', import.meta.url)), 'utf-8')
+const cookingOverlayStyle = layoutSource.slice(
+  layoutSource.indexOf('.route-cooking-overlay {'),
+  layoutSource.indexOf('.route-cooking-scene {'),
+)
 
 describe('recommendation conversation experience', () => {
   it('makes the agent prompt and composer the visual priority', () => {
@@ -70,22 +75,52 @@ describe('recommendation conversation experience', () => {
     expect(messageListSource).toContain('generate-action')
     expect(messageListSource).toContain('去生成')
     expect(recommendSource).toContain('canGenerateRecommendation')
+    expect(recommendSource).toContain('/4 条件已明确')
+    expect(recommendSource).not.toContain('context.availableIngredients.length > 0')
+    expect(summarySource).toContain('未指定已有食材，将按目标和时间推荐')
   })
 
-  it('shows a lightweight generation transition before navigating to recommendation results', () => {
-    expect(recommendSource).toContain('generationStepItems')
-    expect(recommendSource).toContain('generationActiveStep')
+  it('uses a branded health-profile reminder instead of the default blue info alert', () => {
+    expect(recommendSource).toContain('profile-reminder-alert')
+    expect(recommendSource).toContain('profile-reminder-icon')
+    expect(recommendSource).toContain('profile-reminder-action')
+    expect(recommendSource).toContain('健康档案未完善')
+    expect(recommendSource).not.toContain('type="info"')
+  })
+
+  it('uses one full-screen generation transition before navigating to recommendation results', () => {
     expect(recommendSource).toContain('generationConditionSummary')
-    expect(recommendSource).toContain('generationComplete')
-    expect(recommendSource).toContain('advanceGenerationSteps')
-    expect(recommendSource).toContain('generation-overlay')
-    expect(recommendSource).toContain('generation-card')
-    expect(recommendSource).toContain('generation-stage')
-    expect(recommendSource).toContain('正在为你规划这一餐')
-    expect(recommendSource).toContain('已生成，正在打开推荐结果')
-    expect(recommendSource).toContain('await sleep(650)')
-    expect(recommendSource.indexOf('await sleep(650)')).toBeLessThan(
+    expect(recommendSource).toContain('useRecommendationTransitionStore')
+    expect(recommendSource).toContain('routeTransition.start(generationConditionSummary.value)')
+    expect(recommendSource).toContain('routeTransition.markServing()')
+    expect(recommendSource).toContain('routeTransition.finish()')
+    expect(recommendSource).not.toContain('generation-overlay')
+    expect(recommendSource).not.toContain('generation-card')
+    expect(recommendSource).toContain('await sleep(420)')
+    expect(recommendSource.indexOf('routeTransition.start(generationConditionSummary.value)')).toBeLessThan(
+      recommendSource.indexOf('confirmConversation(conversation.value.id)'),
+    )
+    expect(recommendSource.indexOf('await sleep(420)')).toBeLessThan(
       recommendSource.indexOf('recommendationResultRoute(result.historyId)'),
     )
+  })
+
+  it('keeps a full-screen cooking transition alive across the recommendation result route change', () => {
+    expect(layoutSource).toContain('useRecommendationTransitionStore')
+    expect(layoutSource).toContain('routeTransition.markServing()')
+    expect(layoutSource).toContain('routeTransition.finish()')
+    expect(layoutSource).toContain('route-cooking-overlay')
+    expect(layoutSource).toContain('route-cooking-scene')
+    expect(layoutSource).toContain('cooking-bench')
+    expect(layoutSource).toContain('route-cooking-progress')
+    expect(layoutSource).toContain('cooking-progress')
+    expect(layoutSource).toContain('正在为你规划这一餐')
+    expect(layoutSource).toContain('理解饮食目标')
+    expect(layoutSource).toContain('匹配知识库菜谱')
+    expect(layoutSource).toContain('生成推荐理由')
+    expect(layoutSource).toContain('generating-step')
+    expect(layoutSource).toContain('cooking-step-light')
+    expect(layoutSource).toContain('正在打开推荐结果')
+    expect(cookingOverlayStyle).not.toContain('backdrop-filter')
   })
 })

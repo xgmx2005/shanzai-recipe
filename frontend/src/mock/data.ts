@@ -10,6 +10,7 @@ export const demoProfile: Profile = {
   avoidIngredients: ['香菜'],
   allergyIngredients: [],
   cookingTimePreference: 30,
+  profileCompleted: true,
 }
 
 export const recipes: RecipeCardModel[] = [
