@@ -8,6 +8,7 @@ public record ProfileSummaryResponse(
     BigDecimal bmi,
     String bmiStatus,
     Integer dailyCalorieTarget,
-    Integer cookingTimePreference
+    Integer cookingTimePreference,
+    boolean profileCompleted
 ) {
 }

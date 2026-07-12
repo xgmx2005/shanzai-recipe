@@ -45,7 +45,7 @@ public class ProfileService {
     public ProfileSummaryResponse getSummary(Long userId) {
         ProfileEntity profile = findByUserId(userId);
         if (profile == null) {
-            return new ProfileSummaryResponse(false, DietGoal.BALANCED.name(), null, "未填写", null, null);
+            return new ProfileSummaryResponse(false, DietGoal.BALANCED.name(), null, "未填写", null, null, false);
         }
         return new ProfileSummaryResponse(
             true,
@@ -53,7 +53,8 @@ public class ProfileService {
             profile.getBmi(),
             bmiStatus(profile.getBmi()),
             profile.getDailyCalorieTarget(),
-            profile.getCookingTimePreference()
+            profile.getCookingTimePreference(),
+            Boolean.TRUE.equals(profile.getProfileCompleted())
         );
     }
 
@@ -74,6 +75,7 @@ public class ProfileService {
         profile.setAllergyIngredients(joinList(request.allergyIngredients()));
         profile.setCookingTimePreference(request.cookingTimePreference());
         profile.setDailyCalorieTarget(estimateDailyCalorieTarget(request, dietGoal));
+        profile.setProfileCompleted(Boolean.TRUE.equals(request.profileCompleted()));
     }
 
     private BigDecimal calculateBmi(BigDecimal heightCm, BigDecimal weightKg) {
@@ -132,6 +134,7 @@ public class ProfileService {
             splitList(profile.getAllergyIngredients()),
             profile.getCookingTimePreference(),
             profile.getDailyCalorieTarget(),
+            Boolean.TRUE.equals(profile.getProfileCompleted()),
             profile.getUpdatedAt()
         );
     }

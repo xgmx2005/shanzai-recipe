@@ -20,8 +20,8 @@ INSERT INTO `user` (id, username, password_hash, nickname, avatar_theme, avatar_
 (1, 'user1', '$2a$10$Myzuk4UORPlCpzQQbl3xmeJJ9XIR3nS.2hMBemW08V72fZeQaSBJe', '体验用户', 'leaf', '', 'USER', 1),
 (2, 'maintainer', '$2a$10$Myzuk4UORPlCpzQQbl3xmeJJ9XIR3nS.2hMBemW08V72fZeQaSBJe', '维护员', 'grain', '', 'MAINTAINER', 1);
 
-INSERT INTO user_profile (id, user_id, gender, age, height_cm, weight_kg, bmi, diet_goal, taste_preferences, avoid_ingredients, allergy_ingredients, cooking_time_preference, daily_calorie_target) VALUES
-(1, 1, 'FEMALE', 20, 165.00, 55.00, 20.20, 'FAT_LOSS', '清淡,低脂,高蛋白', '辣椒', '', 30, 1600);
+INSERT INTO user_profile (id, user_id, gender, age, height_cm, weight_kg, bmi, diet_goal, taste_preferences, avoid_ingredients, allergy_ingredients, cooking_time_preference, daily_calorie_target, profile_completed) VALUES
+(1, 1, 'FEMALE', 20, 165.00, 55.00, 20.20, 'FAT_LOSS', '清淡,低脂,高蛋白', '辣椒', '', 30, 1600, 1);
 
 INSERT INTO ingredient (id, name, category, unit, calories_per_100g, protein_per_100g, fat_per_100g, carbs_per_100g, aliases) VALUES
 (1, '鸡胸肉', '肉蛋奶', 'g', 133, 24.60, 1.90, 2.50, '鸡肉,鸡胸'),
